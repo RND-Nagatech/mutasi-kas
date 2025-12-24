@@ -1,0 +1,74 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Sensitive & environment
+.env
+.env.*
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Build & OS
+/build
+/.next
+/out
+coverage
+.DS_Store
+
+# System & IDE
+.vscode/settings.json
+.vscode/launch.json
+.vscode/tasks.json
+.idea/
+*.iml
+
+# Backend
+/Backend/.env
+/Backend/.env.*
+/Backend/node_modules
+/Backend/dist
+/Backend/logs
+
+# Misc
+*.pem
+*.key
+*.crt
+*.bak
+*.tmp
+*.swp
+
+# Ignore lock files if needed
+# bun.lockb
+# yarn.lock
+# package-lock.json
+
+# Ignore test snapshots
+__snapshots__/
+
+# Ignore uploads or private data
+/uploads
+/private
+/secrets
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
