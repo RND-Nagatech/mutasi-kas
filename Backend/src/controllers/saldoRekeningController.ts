@@ -8,11 +8,41 @@ export const inputSaldoRekening = async (req: Request, res: Response) => {
     if (!no_rekening || typeof nominal !== 'number') {
       return res.status(400).json({ success: false, message: 'no_rekening dan nominal wajib diisi' });
     }
-    // Ambil saldo terakhir
-    const lastSaldo = await SaldoRekening.findOne({ no_rekening }, {}, { sort: { tanggal: -1 } });
-    const totalNominal = (lastSaldo?.nominal || 0) + nominal;
-    // Create dokumen baru (history) dengan saldo terakumulasi
-    const saldo = await SaldoRekening.create({ no_rekening, nominal: totalNominal, input_by });
+    // Ambil saldo akhir terakhir dari tt_mutasi_kas (TRANSFER, rekening sesuai)
+    const MutasiKas = (await import('../models/MutasiKas')).default;
+    const lastMutasi = await MutasiKas.findOne({ metode: 'TRANSFER', no_rekening }, {}, { sort: { tanggal: -1 } });
+    const saldo_awal = lastMutasi?.saldo_akhir || 0;
+    const nominal_rp = nominal;
+    const saldo_akhir = saldo_awal + nominal_rp;
+    // Buat entry baru di MutasiKas
+    await MutasiKas.create({
+      jenis_kas: 'TERIMA',
+      kode_toko: '-',
+      tanggal: new Date(),
+      jam: new Date().toLocaleTimeString('id-ID', { hour12: false }),
+      no_trx: 'TRX' + Date.now() + Math.floor(Math.random() * 1000),
+      metode: 'TRANSFER',
+      saldo_awal,
+      nominal_rp,
+      saldo_akhir,
+      kode_bank: '-',
+      no_rekening,
+      gramasi: 0,
+      keterangan: 'Input saldo rekening',
+      created_by: input_by,
+      created_at: new Date(),
+      status_validasi: 'OPEN',
+      valid_by: '-',
+    });
+    // Update/replace tm_kas untuk metode TRANSFER dan no_rekening terkait
+    const TmKas = (await import('../models/TmKas')).default;
+    await TmKas.findOneAndUpdate(
+      { metode: 'TRANSFER', no_rekening },
+      { metode: 'TRANSFER', no_rekening, saldo_akhir },
+      { upsert: true, new: true }
+    );
+    // Simpan juga ke SaldoRekening, nominal diisi dari input
+    const saldo = await SaldoRekening.create({ no_rekening, nominal, input_by });
     res.status(201).json({ success: true, data: saldo });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Gagal input saldo rekening', error: err });
