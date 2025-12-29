@@ -11,6 +11,7 @@ export const rekeningApi = {
       noRekening: item.no_rekening,
       namaRekening: item.nama_rekening,
       input_by: item.input_by,
+      editedBy: item.edited_by,
       deleted_by: item.deleted_by,
       createdAt: item.created_at || item.createdAt || '',
       updatedAt: item.updated_at || item.updatedAt || '',

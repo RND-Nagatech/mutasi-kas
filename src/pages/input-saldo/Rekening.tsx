@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useQuery } from '@tanstack/react-query';
 import { rekeningApi } from '@/services/api/rekeningApi';
 import { saldoRekeningApi } from '@/services/api/saldoRekeningApi';
+import { Plus, Pencil, Trash2, Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import {
   Select,
@@ -14,8 +15,10 @@ import {
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import RupiahInput from '@/components/ui/rupiah-input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { CurrencyDisplay } from '@/components/ui/currency-display';
 import {
   Dialog,
   DialogContent,
@@ -79,8 +82,8 @@ export default function InputSaldoRekening() {
     setLoading(true);
     setError(null);
     setSuccess(false);
-    if (!noRekening || !nominal) {
-      setError('Rekening dan nominal harus diisi');
+    if (!noRekening || !nominal || Number(nominal) <= 0) {
+      setError('Rekening dan nominal harus diisi, nominal harus > 0');
       setLoading(false);
       return;
     }
@@ -109,8 +112,9 @@ export default function InputSaldoRekening() {
           <h1 className="text-2xl font-bold">Master Saldo Rekening</h1>
           <p className="text-muted-foreground">Daftar seluruh saldo rekening</p>
         </div>
-        <Button onClick={() => setIsFormOpen(true)} variant="default">
-          + Tambah Data
+        <Button onClick={() => setIsFormOpen(true)} className="bg-[#295c6a] hover:bg-[#1b3d47] text-white">
+          <Plus className="mr-2 h-4 w-4" />
+         Tambah Data
         </Button>
       </div>
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
@@ -134,11 +138,10 @@ export default function InputSaldoRekening() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="nominal">Nominal Saldo Rekening</Label>
-              <Input
+              <RupiahInput
                 id="nominal"
-                type="number"
-                value={nominal}
-                onChange={e => setNominal(e.target.value)}
+                value={nominal ? Number(nominal) : undefined}
+                onValueChange={(val) => setNominal(String(val))}
                 placeholder="Masukkan nominal saldo rekening"
                 required
                 className={error ? 'border-destructive' : ''}
@@ -149,7 +152,7 @@ export default function InputSaldoRekening() {
               <Button type="button" variant="outline" onClick={() => setIsFormOpen(false)}>
                 Batal
               </Button>
-              <Button type="submit" className="bg-[#295c6a] hover:bg-[#1b3d47] text-white" disabled={loading}>
+              <Button type="submit" className="bg-[#295c6a] hover:bg-[#1b3d47] text-white" disabled={loading || Number(nominal) <= 0}>
                 {loading ? 'Menyimpan...' : 'Simpan'}
               </Button>
             </DialogFooter>
@@ -194,11 +197,11 @@ export default function InputSaldoRekening() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {paginatedSaldo.length > 0 ? (
+                  {paginatedSaldo.length > 0 ? (
                   paginatedSaldo.map((item: any, idx: number) => (
                     <TableRow key={idx}>
                       <TableCell>{item.no_rekening || item.noRekening}</TableCell>
-                      <TableCell>{item.nominal}</TableCell>
+                      <TableCell><CurrencyDisplay amount={item.nominal} /></TableCell>
                       <TableCell>{item.input_by}</TableCell>
                       <TableCell>{item.tanggal ? new Date(item.tanggal).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }) : item.created_at ? new Date(item.created_at).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }) : '-'}</TableCell>
                     </TableRow>

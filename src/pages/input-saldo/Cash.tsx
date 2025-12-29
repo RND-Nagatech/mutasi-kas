@@ -5,9 +5,11 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Plus, Pencil, Trash2, Loader2 } from 'lucide-react';
+import RupiahInput from '@/components/ui/rupiah-input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { CurrencyDisplay } from '@/components/ui/currency-display';
 import {
   Dialog,
   DialogContent,
@@ -19,6 +21,7 @@ import {
 export default function InputSaldoCash() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [nominal, setNominal] = useState('');
+  const [nominalNumber, setNominalNumber] = useState<number>(0);
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,10 +37,16 @@ export default function InputSaldoCash() {
     setLoading(true);
     setError(null);
     setSuccess(false);
+    if (!nominalNumber || nominalNumber <= 0) {
+      setError('Nominal harus lebih dari 0');
+      setLoading(false);
+      return;
+    }
     try {
-      await saldoCashApi.input({ nominal: Number(nominal), input_by: user?.username || user?.name || '-' });
+      await saldoCashApi.input({ nominal: nominalNumber, input_by: user?.username || user?.name || '-' });
       setSuccess(true);
       setNominal('');
+      setNominalNumber(0);
       setIsFormOpen(false);
       queryClient.invalidateQueries({ queryKey: ['saldo-cash-list'] });
     } catch (err: any) {
@@ -70,8 +79,9 @@ export default function InputSaldoCash() {
           <h1 className="text-2xl font-bold">Master Saldo Cash</h1>
           <p className="text-muted-foreground">Daftar seluruh saldo cash</p>
         </div>
-        <Button onClick={() => setIsFormOpen(true)} variant="default">
-          + Tambah Data
+        <Button onClick={() => setIsFormOpen(true)} className="bg-[#295c6a] hover:bg-[#1b3d47] text-white">
+          <Plus className="mr-2 h-4 w-4" />
+         Tambah Data
         </Button>
       </div>
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
@@ -82,11 +92,10 @@ export default function InputSaldoCash() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="nominal">Nominal Saldo Cash</Label>
-              <Input
+              <RupiahInput
                 id="nominal"
-                type="number"
-                value={nominal}
-                onChange={e => setNominal(e.target.value)}
+                value={nominalNumber}
+                onValueChange={(v) => { setNominalNumber(v); setNominal(String(v)); }}
                 placeholder="Masukkan nominal saldo cash"
                 required
                 className={error ? 'border-destructive' : ''}
@@ -97,7 +106,7 @@ export default function InputSaldoCash() {
               <Button type="button" variant="outline" onClick={() => setIsFormOpen(false)}>
                 Batal
               </Button>
-              <Button type="submit" className="bg-[#295c6a] hover:bg-[#1b3d47] text-white" disabled={loading}>
+              <Button type="submit" className="bg-[#295c6a] hover:bg-[#1b3d47] text-white" disabled={loading || nominalNumber <= 0}>
                 {loading ? 'Menyimpan...' : 'Simpan'}
               </Button>
             </DialogFooter>
@@ -145,7 +154,7 @@ export default function InputSaldoCash() {
                 {(Array.isArray(paginatedData) && paginatedData.length > 0) ? (
                   paginatedData.map((item: any, idx: number) => (
                     <TableRow key={idx}>
-                      <TableCell>{item.nominal}</TableCell>
+                      <TableCell><CurrencyDisplay amount={item.nominal} /></TableCell>
                       <TableCell>{item.input_by}</TableCell>
                       <TableCell>{item.tanggal ? new Date(item.tanggal).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }) : '-'}</TableCell>
                     </TableRow>

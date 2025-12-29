@@ -13,9 +13,12 @@ export const registerUser = async (username: string, password: string) => {
 
 export const loginUser = async (username: string, password: string) => {
   const user = await User.findOne({ username });
-  if (!user) throw { status: 400, message: 'Invalid credentials' };
+  // Basic input validation to avoid passing undefined to bcrypt.compare
+  if (!username || !password) throw { status: 400, message: 'Username and password required' };
+
+  if (!user || !user.password) throw { status: 400, message: 'Invalid credentials' };
+
   const valid = await comparePassword(password, user.password);
-  if (!valid) throw { status: 400, message: 'Invalid credentials' };
   const token = signJwt({ id: user._id, username: user.username });
   return { token };
 };

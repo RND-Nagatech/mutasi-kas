@@ -188,6 +188,11 @@ export default function MasterRekening() {
       cell: (item) => formatDateTimeWIB(item.createdAt),
     },
     {
+      key: 'editedBy',
+      header: 'Diedit oleh',
+      cell: (item) => (item.editedBy ? item.editedBy : '-'),
+    },
+    {
       key: 'actions',
       header: '',
       cell: (item) => (

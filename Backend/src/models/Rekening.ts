@@ -6,6 +6,7 @@ export interface IRekening extends Document {
   no_rekening: string;
   nama_rekening: string;
   input_by?: string;
+  edited_by?: string;
   deleted_by?: string;
   created_at: Date;
   updated_at: Date;
@@ -16,6 +17,7 @@ const RekeningSchema = new Schema<IRekening>({
   no_rekening: { type: String, required: true, unique: true },
   nama_rekening: { type: String, required: true },
   input_by: { type: String },
+  edited_by: { type: String },
   deleted_by: { type: String },
   created_at: { type: Date, default: Date.now },
   updated_at: { type: Date, default: Date.now },

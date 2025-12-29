@@ -319,6 +319,9 @@ router.put(
       rekening.no_rekening = no_rekening || rekening.no_rekening;
       rekening.nama_rekening = nama_rekening || rekening.nama_rekening;
       rekening.input_by = input_by || rekening.input_by;
+      // set edited_by to current user when updating
+      const user = (req as any).user;
+      rekening.edited_by = user?.username || user?.name || 'unknown';
       await rekening.save();
 
       res.json({

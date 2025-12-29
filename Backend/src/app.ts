@@ -21,9 +21,9 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
-app.use('/api/auth', authRoutes);
-app.use('/api/transaksi', transaksiRoutes);
-app.use('/api/master', masterRoutes);
+app.use('/auth', authRoutes);
+app.use('/transaksi', transaksiRoutes);
+app.use('/master', masterRoutes);
 
 app.use(errorHandler);
 

@@ -40,6 +40,7 @@ export interface Bank {
   kodeBank: string;
   namaBank: string;
   nomorAkun: string;
+  editedBy?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -63,6 +64,7 @@ export interface Rekening {
   noRekening?: string;
   namaRekening?: string;
   input_by?: string;
+  editedBy?: string;
   deleted_by?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -132,7 +134,7 @@ export interface DashboardSummary {
 
 // Report Filter Types
 export interface LaporanMutasiFilter {
-  type: 'DETAIL' | 'REKAP';
+  type?: 'DETAIL' | 'REKAP';
   startDate: string;
   endDate: string;
   kodeToko?: string;

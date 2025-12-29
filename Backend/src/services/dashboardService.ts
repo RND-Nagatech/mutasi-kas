@@ -13,20 +13,20 @@ export const getDashboardSummary = async () => {
   const lastRekening = await SaldoRekening.findOne({}, {}, { sort: { tanggal: -1 } });
   const saldoHariIni = (lastCash?.nominal || 0) + (lastRekening?.nominal || 0);
 
-  // Total Kirim Kas Hari Ini
+  // Total Kirim Kas Hari Ini (exclude cancelled)
   const totalKirimKas = await MutasiKas.aggregate([
-    { $match: { jenis_kas: 'KIRIM', tanggal: { $gte: today, $lt: tomorrow } } },
+    { $match: { jenis_kas: 'KIRIM', tanggal: { $gte: today, $lt: tomorrow }, status_validasi: { $ne: 'CANCEL' } } },
     { $group: { _id: null, total: { $sum: "$nominal_rp" } } }
   ]);
 
-  // Total Terima Kas Hari Ini
+  // Total Terima Kas Hari Ini (exclude cancelled)
   const totalTerimaKas = await MutasiKas.aggregate([
-    { $match: { jenis_kas: 'TERIMA', tanggal: { $gte: today, $lt: tomorrow } } },
+    { $match: { jenis_kas: 'TERIMA', tanggal: { $gte: today, $lt: tomorrow }, status_validasi: { $ne: 'CANCEL' } } },
     { $group: { _id: null, total: { $sum: "$nominal_rp" } } }
   ]);
 
-  // Jumlah Transaksi Hari Ini
-  const jumlahTransaksiHariIni = await MutasiKas.countDocuments({ tanggal: { $gte: today, $lt: tomorrow } });
+  // Jumlah Transaksi Hari Ini (exclude cancelled)
+  const jumlahTransaksiHariIni = await MutasiKas.countDocuments({ tanggal: { $gte: today, $lt: tomorrow }, status_validasi: { $ne: 'CANCEL' } });
 
   return {
     saldoHariIni,

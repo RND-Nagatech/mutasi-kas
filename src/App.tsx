@@ -15,6 +15,7 @@ import MasterBank from "./pages/master/MasterBank";
 import MasterRekening from "./pages/master/MasterRekening";
 import KirimKas from "./pages/transaksi/KirimKas";
 import BatalKirimKas from "./pages/transaksi/BatalKirimKas";
+import TerimaKas from "./pages/transaksi/TerimaKas";
 import LaporanMutasiKas from "./pages/laporan/LaporanMutasiKas";
 import LaporanKirimanSetoran from "./pages/laporan/LaporanKirimanSetoran";
 import NotFound from "./pages/NotFound";
@@ -49,6 +50,7 @@ const App = () => (
             <Route path="/master/toko" element={<MasterToko />} />
             <Route path="/transaksi/kirim" element={<KirimKas />} />
             <Route path="/transaksi/batal-kirim" element={<BatalKirimKas />} />
+            <Route path="/transaksi/terima" element={<TerimaKas />} />
             <Route path="/laporan/mutasi-kas" element={<LaporanMutasiKas />} />
             <Route path="/laporan/kiriman-setoran" element={<LaporanKirimanSetoran />} />
             <Route path="/input-saldo/cash" element={<InputSaldoCash />} />

@@ -30,18 +30,26 @@ import { StatusBadge } from '@/components/ui/status-badge';
 import { CurrencyDisplay } from '@/components/ui/currency-display';
 // TODO: Replace toko with backend API if available
 import { mutasiApi } from '@/services/api/mutasiApi';
+import { masterTokoApi } from '@/services/api/masterTokoApi';
 import { formatDate, formatDateTime, formatDateForApi } from '@/utils/format';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import type { MutasiKas } from '@/types';
 
 export default function BatalKirimKas() {
-  const [filters, setFilters] = useState({
-    tanggal: '',
+  const today = new Date();
+  const [pendingFilters, setPendingFilters] = useState({
+    tanggal: formatDateForApi(today),
     kodeToko: '',
     noTransaksi: '',
   });
-  const [selectedDate, setSelectedDate] = useState<Date>();
+  const [activeFilters, setActiveFilters] = useState<null | {
+    tanggal?: string;
+    kodeToko?: string;
+    noTransaksi?: string;
+  }>(null);
+  const [selectedDate, setSelectedDate] = useState<Date>(today);
+  const [dateOpen, setDateOpen] = useState<boolean>(false);
   const [isCancelOpen, setIsCancelOpen] = useState(false);
   const [selectedMutasi, setSelectedMutasi] = useState<MutasiKas | null>(null);
   const [alasan, setAlasan] = useState('');
@@ -51,24 +59,56 @@ export default function BatalKirimKas() {
 
   const { data: tokoData } = useQuery({
     queryKey: ['toko'],
-    queryFn: () => mockTokoService.getAll(),
+    queryFn: () => masterTokoApi.getAll(),
   });
 
   const { data: mutasiData, isLoading, refetch } = useQuery({
-    queryKey: ['cancelable-mutasi', filters],
-    queryFn: () => mockMutasiService.getCancelableMutasi({
-      tanggal: filters.tanggal || undefined,
-      kodeToko: filters.kodeToko || undefined,
-      noTransaksi: filters.noTransaksi || undefined,
-    }),
+    queryKey: ['cancelable-mutasi', activeFilters],
+    enabled: !!activeFilters,
+    queryFn: async () => {
+      const params = activeFilters || {};
+
+      // If user provided noTransaksi, prioritize searching by transaction number
+      // and do not include date filters in the request.
+      const requestParams: any = {};
+      if (params.kodeToko) requestParams.kodeToko = params.kodeToko;
+
+      if (params.noTransaksi) {
+        const res = await mutasiApi.getMutasi(requestParams);
+        const list = Array.isArray(res) ? res : (res?.data || []);
+        const filtered = list.filter((m: any) => {
+          const jenis = (m.jenisKas || m.jenis_kas || m.jenis || '').toString().toUpperCase();
+          const status = (m.status || m.status_validasi || m.statusValidasi || '').toString().toUpperCase();
+          return jenis === 'KIRIM' && (status === 'OPEN' || status === '' || status === 'PENDING');
+        });
+        // match transaction number (contains) to be forgiving
+        return filtered.filter((m: any) => (m.noTransaksi || m.no_transaksi || '').toString().includes(params.noTransaksi!));
+      }
+
+      // Otherwise, search by tanggal (startDate=endDate)
+      const res = await mutasiApi.getMutasi({
+        startDate: params.tanggal || undefined,
+        endDate: params.tanggal || undefined,
+        kodeToko: params.kodeToko || undefined,
+      });
+      const list = Array.isArray(res) ? res : (res?.data || []);
+      return list.filter((m: any) => {
+        const jenis = (m.jenisKas || m.jenis_kas || m.jenis || '').toString().toUpperCase();
+        const status = (m.status || m.status_validasi || m.statusValidasi || '').toString().toUpperCase();
+        return jenis === 'KIRIM' && (status === 'OPEN' || status === '' || status === 'PENDING');
+      });
+    },
   });
 
   const batalMutation = useMutation({
-    mutationFn: (data: { id: string }) => mutasiApi.cancelMutasi(data.id),
+    mutationFn: (data: any) => mutasiApi.cancelMutasi(data.id, data.alasan),
     onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ['cancelable-mutasi'] });
       queryClient.invalidateQueries({ queryKey: ['recent-mutasi'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
+      // Also invalidate report queries so report pages refresh automatically
+      queryClient.invalidateQueries({ queryKey: ['laporan-mutasi'] });
+      queryClient.invalidateQueries({ queryKey: ['laporan-kiriman-setoran'] });
       toast({ title: 'Berhasil', description: response.message || 'Mutasi berhasil dibatalkan' });
       setIsCancelOpen(false);
       setSelectedMutasi(null);
@@ -81,10 +121,11 @@ export default function BatalKirimKas() {
 
   const handleDateSelect = (date: Date | undefined) => {
     setSelectedDate(date);
-    setFilters(prev => ({
+    setPendingFilters(prev => ({
       ...prev,
       tanggal: date ? formatDateForApi(date) : '',
     }));
+    setDateOpen(false);
   };
 
   const handleCancel = (mutasi: MutasiKas) => {
@@ -99,8 +140,13 @@ export default function BatalKirimKas() {
   };
 
   const clearFilters = () => {
-    setFilters({ tanggal: '', kodeToko: '', noTransaksi: '' });
-    setSelectedDate(undefined);
+    setPendingFilters({ tanggal: formatDateForApi(today), kodeToko: '', noTransaksi: '' });
+    setSelectedDate(today);
+    setActiveFilters(null);
+  };
+
+  const handleSearch = () => {
+    setActiveFilters({ ...pendingFilters });
   };
 
   const columns: Column<MutasiKas>[] = [
@@ -168,9 +214,9 @@ export default function BatalKirimKas() {
     },
   ];
 
-  const mutasiList = mutasiData?.data || [];
-  const tokoList = tokoData?.data || [];
-  const hasFilters = filters.tanggal || filters.kodeToko || filters.noTransaksi;
+  const mutasiList = !activeFilters ? [] : (Array.isArray(mutasiData) ? mutasiData : (mutasiData?.data || []));
+  const tokoList = Array.isArray(tokoData) ? tokoData : (tokoData?.data || []);
+  const hasFilters = pendingFilters.tanggal || pendingFilters.kodeToko || pendingFilters.noTransaksi;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -188,7 +234,7 @@ export default function BatalKirimKas() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-2">
               <Label>Tanggal</Label>
-              <Popover>
+              <Popover open={dateOpen} onOpenChange={setDateOpen}>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
@@ -216,17 +262,17 @@ export default function BatalKirimKas() {
             <div className="space-y-2">
               <Label>Kode Toko</Label>
               <Select
-                value={filters.kodeToko}
-                onValueChange={(value) => setFilters(prev => ({ ...prev, kodeToko: value }))}
+                value={pendingFilters.kodeToko || 'ALL'}
+                onValueChange={(value) => setPendingFilters(prev => ({ ...prev, kodeToko: value === 'ALL' ? '' : value }))}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full justify-between text-left font-normal">
                   <SelectValue placeholder="Semua Toko" />
                 </SelectTrigger>
-                <SelectContent className="bg-popover">
-                  <SelectItem value="">Semua Toko</SelectItem>
-                  {tokoList.map((toko) => (
-                    <SelectItem key={toko.id} value={toko.kodeToko}>
-                      {toko.kodeToko} - {toko.namaToko}
+                <SelectContent className="bg-popover max-h-48 overflow-auto">
+                  <SelectItem value="ALL">Semua Toko</SelectItem>
+                  {tokoList.map((t: any) => (
+                    <SelectItem key={t.id || t.kode_toko || t.kodeToko} value={t.kodeToko || t.kode_toko}>
+                      {(t.kodeToko || t.kode_toko) || '-'} - {(t.namaToko || t.nama_toko || t.kodeToko || t.kode_toko) || '-'}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -237,13 +283,13 @@ export default function BatalKirimKas() {
               <Label>No. Transaksi</Label>
               <Input
                 placeholder="Cari no. transaksi"
-                value={filters.noTransaksi}
-                onChange={(e) => setFilters(prev => ({ ...prev, noTransaksi: e.target.value }))}
+                value={pendingFilters.noTransaksi}
+                onChange={(e) => setPendingFilters(prev => ({ ...prev, noTransaksi: e.target.value }))}
               />
             </div>
 
             <div className="flex items-end gap-2">
-              <Button onClick={() => refetch()} className="flex-1">
+              <Button onClick={handleSearch} className="flex-1">
                 <Search className="mr-2 h-4 w-4" />
                 Cari
               </Button>
@@ -263,7 +309,7 @@ export default function BatalKirimKas() {
         data={mutasiList}
         isLoading={isLoading}
         keyExtractor={(item) => item.id}
-        emptyMessage="Tidak ada transaksi yang dapat dibatalkan"
+        emptyMessage={!activeFilters ? 'Klik Cari untuk menampilkan data' : 'Tidak ada transaksi yang dapat dibatalkan'}
       />
 
       {/* Cancel Dialog */}

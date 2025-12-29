@@ -22,12 +22,37 @@ export const createMutasiKas = async (data: Omit<IMutasiKas, 'no_trx' | 'saldo_a
 
   // Jika metode CASH, update saldo cash
   if (data.metode === 'CASH') {
-    // Ambil saldo terakhir
+    // Ambil saldo terakhir dari SaldoCash (historic) dan buat entry baru
     const lastSaldo = await SaldoCash.findOne({}, {}, { sort: { tanggal: -1 } });
     const saldoSebelum = lastSaldo ? lastSaldo.nominal : 0;
     const saldoBaru = saldoSebelum - data.nominal_rp;
-    // Simpan entri baru SaldoCash
     await SaldoCash.create({ nominal: saldoBaru, input_by: data.created_by });
+    // Update tm_kas for CASH (use '-' as no_rekening) - only overwrite existing, do not create
+    const TmKas = (await import('../models/TmKas')).default;
+    const existingCash = await TmKas.findOne({ metode: 'CASH', no_rekening: '-' });
+    if (existingCash) {
+      // Use the saldo computed/stored on the saved mutasi to keep tt_mutasi_kas and tm_kas in sync
+      await TmKas.findOneAndUpdate(
+        { _id: existingCash._id },
+        { metode: 'CASH', no_rekening: '-', saldo_akhir: mutasi.saldo_akhir },
+        { upsert: false, new: true }
+      );
+    }
+  }
+
+  // Jika metode TRANSFER, update tm_kas untuk rekening terkait
+  if (data.metode === 'TRANSFER') {
+    const TmKas = (await import('../models/TmKas')).default;
+    // Ambil tm_kas untuk rekening ini (do not create new)
+    const existing = await TmKas.findOne({ metode: 'TRANSFER', no_rekening: data.no_rekening });
+    if (existing) {
+      // Keep tm_kas in sync with the saved mutasi's saldo_akhir
+      await TmKas.findOneAndUpdate(
+        { _id: existing._id },
+        { metode: 'TRANSFER', no_rekening: data.no_rekening, saldo_akhir: mutasi.saldo_akhir },
+        { upsert: false, new: true }
+      );
+    }
   }
 
   return mutasi;
@@ -49,32 +74,72 @@ export const getMutasiKasRekap = async (filter: any = {}) => {
     group[tgl].push(item);
   });
   // Proses agregasi per tanggal
-  const result = Object.entries(group).map(([tanggal, items]) => {
-    // Saldo awal = saldo_awal dari transaksi pertama hari itu
-    const saldoAwal = items[0].saldo_awal;
+  // Pastikan tanggal diproses berurutan agar kita bisa menggunakan saldo akhir hari sebelumnya
+  const sortedDates = Object.keys(group).sort();
+  const result: any[] = [];
+  let prevSaldoAkhir: number | null = null;
+  for (const tanggal of sortedDates) {
+    const items = group[tanggal];
+    // Saldo awal = saldo_awal dari transaksi pertama hari itu, atau jika tidak tersedia, gunakan saldo akhir hari sebelumnya
+    let saldoAwal = items[0].saldo_awal;
+    // Treat missing or zero saldo_awal as absent when a previous day's saldo exists
+    if (saldoAwal === undefined || saldoAwal === null || (saldoAwal === 0 && prevSaldoAkhir !== null)) {
+      saldoAwal = prevSaldoAkhir !== null ? prevSaldoAkhir : 0;
+    }
     // Total terima = sum nominal_rp jenis_kas TERIMA
     const totalTerima = items.filter(i => i.jenis_kas === 'TERIMA').reduce((sum, i) => sum + i.nominal_rp, 0);
     // Total kirim = sum nominal_rp jenis_kas KIRIM
     const totalKirim = items.filter(i => i.jenis_kas === 'KIRIM').reduce((sum, i) => sum + i.nominal_rp, 0);
     // Saldo akhir = saldo_akhir dari transaksi terakhir hari itu
     const saldoAkhir = items[items.length - 1].saldo_akhir;
-    return {
-      tanggal,
-      saldoAwal,
-      totalTerima,
-      totalKirim,
-      saldoAkhir,
-    };
-  });
+    result.push({ tanggal, saldoAwal, totalTerima, totalKirim, saldoAkhir });
+    prevSaldoAkhir = saldoAkhir;
+  }
   return result;
 };
 
-export const cancelMutasiKas = async (id: string, created_by: string) => {
+export const cancelMutasiKas = async (id: string, created_by: string, alasan?: string) => {
   const mutasi = await MutasiKas.findById(id);
   if (!mutasi) throw { status: 404, message: 'Mutasi not found' };
   if (mutasi.status_validasi !== 'OPEN') throw { status: 400, message: 'Only OPEN mutasi can be cancelled' };
+
+  // Revert saldo changes depending on metode
+  if (mutasi.metode === 'CASH') {
+    // Add back nominal to SaldoCash (create compensating entry)
+    const lastSaldo = await SaldoCash.findOne({}, {}, { sort: { tanggal: -1 } });
+    const saldoSebelum = lastSaldo ? lastSaldo.nominal : 0;
+    const saldoBaru = saldoSebelum + mutasi.nominal_rp;
+    await SaldoCash.create({ nominal: saldoBaru, input_by: created_by });
+
+    // Update tm_kas for CASH (no_rekening = '-')
+    const TmKas = (await import('../models/TmKas')).default;
+    const existingCash = await TmKas.findOne({ metode: 'CASH', no_rekening: '-' });
+    if (existingCash) {
+      await TmKas.findOneAndUpdate(
+        { _id: existingCash._id },
+        { saldo_akhir: (existingCash.saldo_akhir || 0) + mutasi.nominal_rp },
+        { upsert: false, new: true }
+      );
+    }
+  }
+
+  if (mutasi.metode === 'TRANSFER') {
+    const TmKas = (await import('../models/TmKas')).default;
+    const existing = await TmKas.findOne({ metode: 'TRANSFER', no_rekening: mutasi.no_rekening });
+    if (existing) {
+      await TmKas.findOneAndUpdate(
+        { _id: existing._id },
+        { saldo_akhir: (existing.saldo_akhir || 0) + mutasi.nominal_rp },
+        { upsert: false, new: true }
+      );
+    }
+  }
+
+  // Mark mutasi as cancelled
   mutasi.status_validasi = 'CANCEL';
   await mutasi.save();
+
+  // Record cancellation
   await MutasiKasBatal.create({
     tanggal: mutasi.tanggal,
     jam: mutasi.jam,
@@ -87,10 +152,12 @@ export const cancelMutasiKas = async (id: string, created_by: string) => {
     kode_bank: mutasi.kode_bank,
     no_rekening: mutasi.no_rekening,
     keterangan: mutasi.keterangan,
+    alasan: alasan || '',
     created_by,
     created_at: new Date(),
     status_validasi: mutasi.status_validasi,
     valid_by: mutasi.valid_by,
   });
+
   return mutasi;
 };

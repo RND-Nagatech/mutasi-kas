@@ -12,6 +12,7 @@ export interface IMutasiKasBatal extends Document {
   kode_bank: string;
   no_rekening: string;
   keterangan: string;
+  alasan?: string;
   created_by: string;
   created_at: Date;
   status_validasi: string;
@@ -30,6 +31,7 @@ const MutasiKasBatalSchema = new Schema<IMutasiKasBatal>({
   kode_bank: { type: String, required: true },
   no_rekening: { type: String, required: true },
   keterangan: { type: String, required: true },
+  alasan: { type: String, required: false },
   created_by: { type: String, required: true },
   created_at: { type: Date, default: Date.now },
   status_validasi: { type: String, required: true },

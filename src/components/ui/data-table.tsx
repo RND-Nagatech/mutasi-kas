@@ -4,6 +4,7 @@ import {
   TableCell,
   TableHead,
   TableHeader,
+  TableFooter,
   TableRow,
 } from '@/components/ui/table';
 import { TableSkeleton } from '@/components/ui/loading-skeleton';
@@ -11,7 +12,7 @@ import { cn } from '@/lib/utils';
 
 export interface Column<T> {
   key: string;
-  header: string;
+  header: React.ReactNode;
   cell: (item: T) => React.ReactNode;
   className?: string;
 }
@@ -24,6 +25,7 @@ interface DataTableProps<T> {
   keyExtractor: (item: T) => string;
   onRowClick?: (item: T) => void;
   className?: string;
+  footer?: React.ReactNode;
 }
 
 export function DataTable<T>({
@@ -34,6 +36,7 @@ export function DataTable<T>({
   keyExtractor,
   onRowClick,
   className,
+  footer,
 }: DataTableProps<T>) {
   if (isLoading) {
     return <TableSkeleton rows={5} columns={columns.length} />;
@@ -82,7 +85,13 @@ export function DataTable<T>({
               </TableRow>
             ))
           )}
+          
         </TableBody>
+        {data.length > 0 && footer && (
+          <TableFooter>
+            {footer}
+          </TableFooter>
+        )}
       </Table>
     </div>
   );

@@ -1,73 +1,101 @@
-# Welcome to your Lovable project
+# Mutasi Kas — Frontend
 
-## Project info
+This repository contains the frontend application for the Mutasi Kas system (Vite + React + TypeScript). The app provides UI for creating, receiving, cancelling, and reporting cash transfers between stores and the central cashier.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Tech stack
 
-## How can I edit this code?
+- Vite
+- React
+- TypeScript
+- Tailwind CSS
+- shadcn-ui (Radix + Tailwind primitives)
+- react-query
 
-There are several ways of editing your application.
+## Quick start (local development)
 
-**Use Lovable**
+1. Install dependencies:
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+```bash
+npm install
+```
 
-Changes made via Lovable will be committed automatically to this repo.
+2. Environment variables (optional):
 
-**Use your preferred IDE**
+Create a `.env` file in the project root if you need to override defaults. Typical variable:
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+- `VITE_API_BASE` — base URL for the backend API (if the backend runs on a different host/port). If unset, the frontend calls the same origin.
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+3. Start dev server:
 
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+```bash
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+4. Build for production and preview:
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+```bash
+npm run build
+npm run preview
+```
 
-**Use GitHub Codespaces**
+## NPM scripts
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+- `dev`: start Vite dev server
+- `build`: build production assets
+- `preview`: preview built assets locally
 
-## What technologies are used for this project?
+## Important pages / features
 
-This project is built with:
+- `Login` — user authentication
+- `Dashboard` — today's totals (Saldo, Total Kirim, Total Terima, number of transactions)
+- `Kirim Kas` — create KIRIM transactions (CASH/TRANSFER)
+- `Terima Kas` — accept KIRIM from other stores; creates TERIMA entries with correct saldo
+- `Batal Kirim Kas` — cancel open KIRIM transactions; requires a reason and reverts balances
+- `Laporan Mutasi Kas` — report page with `DETAIL` and `REKAP` modes; supports PDF/Excel exports
+- `Laporan Kiriman & Setoran` — report + export for kiriman/setoran
+- `Input Saldo` — record saldo adjustments for Cash / Rekening
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+UI notes:
+- Tables are fetched only after user triggers search ("Tampilkan Laporan") to avoid unnecessary loads.
+- PDF export uses `jsPDF` + `jspdf-autotable`; Excel export uses `xlsx` + `file-saver`.
+- REKAP export omits the `Tipe` column and aggregates `totalTerima`/`totalKirim` correctly.
 
-## How can I deploy this project?
+## Frontend ↔ Backend (API) overview
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+The frontend uses `src/services/api/*` to call the backend. Key endpoints the frontend relies on:
 
-## Can I connect a custom domain to my Lovable project?
+- `POST /auth/login` — authenticate and receive JWT
+- `GET /master/toko` — master toko list for selects
+- `GET /master/dashboard/summary` — dashboard metrics
+- `GET /transaksi/mutasi` — list mutasi (supports query params: `type`, `startDate`, `endDate`, `kodeToko`, `metode`, `includeCanceled`)
+- `GET /transaksi/mutasi/last-saldo-akhir` — last saldo_akhir for a `kodeToko` / `metode` / `noRekening`
+- `POST /transaksi/mutasi` — create mutasi (KIRIM or TERIMA). Provide `saldo_awal` and `saldo_akhir` when creating TERIMA if available.
+- `POST /transaksi/mutasi/:id/batal` — cancel mutasi (pass `{ alasan }` in body)
 
-Yes, you can!
+All protected calls require `Authorization: Bearer <token>`.
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## Behavior details / implementation notes
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+- When cancelling a KIRIM, the backend marks the record `status_validasi = 'CANCEL'`, creates a cancellation record and reverts balances (updates `SaldoCash` and `tm_kas` if applicable).
+- Dashboard and report summaries exclude cancelled transactions by default.
+- `Terima Kas` flow: accepting a KIRIM creates a new `TERIMA` mutasi. The frontend fetches the last saldo via `/transaksi/mutasi/last-saldo-akhir` and sets `saldo_awal` and `saldo_akhir = saldo_awal + nominal` on the created TERIMA.
+
+## Developer tips
+
+- Update both `src/services/api/*` and backend controller mappings if you change API response shapes.
+- Use React Query devtools while developing to inspect cache and invalidations.
+
+## Manual verification / testing
+
+1. Start backend and frontend (ensure `VITE_API_BASE` is set if backend hosted separately).
+2. Create a KIRIM via `Kirim Kas` and verify it appears in `Laporan Mutasi Kas` (DETAIL view).
+3. Cancel the KIRIM via `Batal Kirim Kas` with a reason and verify it is excluded from dashboard/report totals and a record exists in `tt_mutasi_kas_batal`.
+4. Accept a KIRIM via `Terima Kas` and verify the created TERIMA has `saldo_awal` equal to last saldo and `saldo_akhir = saldo_awal + nominal`.
+
+## Extras I can add
+
+- a `frontend/.env.example` file with recommended environment vars
+- a Postman collection or curl examples for the main flows
+- a small script to run frontend + backend together for dev
+
+Tell me which of the above you'd like and I will add it.

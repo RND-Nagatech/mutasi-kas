@@ -163,6 +163,11 @@ export default function MasterBank() {
       },
     },
     {
+      key: 'editedBy',
+      header: 'Diedit oleh',
+      cell: (item) => item.editedBy ? item.editedBy : '-',
+    },
+    {
       key: 'actions',
       header: '',
       cell: (item) => (
@@ -203,6 +208,7 @@ export default function MasterBank() {
         namaBank: item.nama_bank,
         nomorAkun: item.nomor_akun,
         createdAt: item.created_at,
+        editedBy: item.edited_by || item.editedBy,
       }))
     : [];
   const isSubmitting = createMutation.isPending || updateMutation.isPending;
