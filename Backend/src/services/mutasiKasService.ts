@@ -1,6 +1,7 @@
 import MutasiKas, { IMutasiKas } from '../models/MutasiKas';
 import MutasiKasBatal from '../models/MutasiKasBatal';
 import SaldoCash from '../models/SaldoCash';
+import TmKas from '../models/TmKas';
 import { Types } from 'mongoose';
 
 function generateNoTrx(): string {
@@ -19,40 +20,19 @@ export const createMutasiKas = async (data: Omit<IMutasiKas, 'no_trx' | 'saldo_a
     valid_by: '-',
   });
   await mutasi.save();
-
-  // Jika metode CASH, update saldo cash
-  if (data.metode === 'CASH') {
-    // Ambil saldo terakhir dari SaldoCash (historic) dan buat entry baru
-    const lastSaldo = await SaldoCash.findOne({}, {}, { sort: { tanggal: -1 } });
-    const saldoSebelum = lastSaldo ? lastSaldo.nominal : 0;
-    const saldoBaru = saldoSebelum - data.nominal_rp;
-    await SaldoCash.create({ nominal: saldoBaru, input_by: data.created_by });
-    // Update tm_kas for CASH (use '-' as no_rekening) - only overwrite existing, do not create
-    const TmKas = (await import('../models/TmKas')).default;
-    const existingCash = await TmKas.findOne({ metode: 'CASH', no_rekening: '-' });
-    if (existingCash) {
-      // Use the saldo computed/stored on the saved mutasi to keep tt_mutasi_kas and tm_kas in sync
-      await TmKas.findOneAndUpdate(
-        { _id: existingCash._id },
-        { metode: 'CASH', no_rekening: '-', saldo_akhir: mutasi.saldo_akhir },
-        { upsert: false, new: true }
-      );
-    }
-  }
-
-  // Jika metode TRANSFER, update tm_kas untuk rekening terkait
-  if (data.metode === 'TRANSFER') {
-    const TmKas = (await import('../models/TmKas')).default;
-    // Ambil tm_kas untuk rekening ini (do not create new)
-    const existing = await TmKas.findOne({ metode: 'TRANSFER', no_rekening: data.no_rekening });
-    if (existing) {
-      // Keep tm_kas in sync with the saved mutasi's saldo_akhir
-      await TmKas.findOneAndUpdate(
-        { _id: existing._id },
-        { metode: 'TRANSFER', no_rekening: data.no_rekening, saldo_akhir: mutasi.saldo_akhir },
-        { upsert: false, new: true }
-      );
-    }
+  // Sync the tm_kas record's saldo_akhir to match the created mutasi's saldo_akhir.
+  // We still avoid touching `SaldoCash` historic log entries here; tm_kas is
+  // kept as the current ledger for each metode/no_rekening.
+  try {
+    const noRek = mutasi.no_rekening || (mutasi.metode === 'CASH' ? '-' : '');
+    await TmKas.findOneAndUpdate(
+      { metode: mutasi.metode, no_rekening: noRek },
+      { $set: { saldo_akhir: mutasi.saldo_akhir, metode: mutasi.metode, no_rekening: noRek } },
+      { upsert: true, new: true }
+    );
+  } catch (err) {
+    // Log but do not fail the mutasi creation if tm_kas update fails
+    console.error('Failed to sync tm_kas saldo_akhir:', err);
   }
 
   return mutasi;
@@ -102,44 +82,13 @@ export const cancelMutasiKas = async (id: string, created_by: string, alasan?: s
   const mutasi = await MutasiKas.findById(id);
   if (!mutasi) throw { status: 404, message: 'Mutasi not found' };
   if (mutasi.status_validasi !== 'OPEN') throw { status: 400, message: 'Only OPEN mutasi can be cancelled' };
-
-  // Revert saldo changes depending on metode
-  if (mutasi.metode === 'CASH') {
-    // Add back nominal to SaldoCash (create compensating entry)
-    const lastSaldo = await SaldoCash.findOne({}, {}, { sort: { tanggal: -1 } });
-    const saldoSebelum = lastSaldo ? lastSaldo.nominal : 0;
-    const saldoBaru = saldoSebelum + mutasi.nominal_rp;
-    await SaldoCash.create({ nominal: saldoBaru, input_by: created_by });
-
-    // Update tm_kas for CASH (no_rekening = '-')
-    const TmKas = (await import('../models/TmKas')).default;
-    const existingCash = await TmKas.findOne({ metode: 'CASH', no_rekening: '-' });
-    if (existingCash) {
-      await TmKas.findOneAndUpdate(
-        { _id: existingCash._id },
-        { saldo_akhir: (existingCash.saldo_akhir || 0) + mutasi.nominal_rp },
-        { upsert: false, new: true }
-      );
-    }
-  }
-
-  if (mutasi.metode === 'TRANSFER') {
-    const TmKas = (await import('../models/TmKas')).default;
-    const existing = await TmKas.findOne({ metode: 'TRANSFER', no_rekening: mutasi.no_rekening });
-    if (existing) {
-      await TmKas.findOneAndUpdate(
-        { _id: existing._id },
-        { saldo_akhir: (existing.saldo_akhir || 0) + mutasi.nominal_rp },
-        { upsert: false, new: true }
-      );
-    }
-  }
-
-  // Mark mutasi as cancelled
+  // NOTE: We mark the mutasi as cancelled and record the cancellation details,
+  // but we DO NOT modify historic `SaldoCash` or `tm_kas` here. Manual saldo
+  // adjustments should be performed via the dedicated endpoints when needed.
   mutasi.status_validasi = 'CANCEL';
   await mutasi.save();
 
-  // Record cancellation
+  // Record cancellation (persist alasan and other fields)
   await MutasiKasBatal.create({
     tanggal: mutasi.tanggal,
     jam: mutasi.jam,

@@ -341,8 +341,9 @@ export default function KirimKas() {
                       // close confirmation
                       setShowConfirm(false);
                       // reset form to initial state so page appears fresh
-                      // set `metode` to empty string so Select shows the placeholder "Pilih Metode"
                       reset({ kodeToko: '', metode: undefined, noRekening: '', nominalKirim: 0, keterangan: '-', gramasi: undefined });
+                      // Ensure the Select shows the placeholder text by clearing the value
+                      setValue('metode', '' as any);
                       // clear displayed saldo
                       setSaldoAwal(0);
                     } catch (err) {
