@@ -24,7 +24,7 @@ app.use(bodyParser.json());
 // =======================
 // Health Check
 // =======================
-app.get('/health', (req, res) => {
+app.get('/api/health', (req, res) => {
   res.status(200).json({
     status: 'ok',
     service: 'backend-api',
@@ -33,10 +33,9 @@ app.get('/health', (req, res) => {
   });
 });
 
-
-app.use('/auth', authRoutes);
-app.use('/transaksi', transaksiRoutes);
-app.use('/master', masterRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/transaksi', transaksiRoutes);
+app.use('/api/master', masterRoutes);
 
 app.use(errorHandler);
 
