@@ -4,6 +4,8 @@ export interface ExportReportParams<T> {
   endDate: Date;
   filters: Record<string, any>;
   data: T[];
+  // optional lookup of rekening records (frontend normalized shape)
+  rekeningList?: Array<Record<string, any>>;
 }
 
 export default ExportReportParams;

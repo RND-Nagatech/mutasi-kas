@@ -108,5 +108,44 @@ export const cancelMutasiKas = async (id: string, created_by: string, alasan?: s
     valid_by: mutasi.valid_by,
   });
 
+  // Reverse the effect on current balances (tm_kas) and record cash input if needed.
+  try {
+    const noRek = mutasi.no_rekening || (mutasi.metode === 'CASH' ? '-' : '');
+    const tm = await TmKas.findOne({ metode: mutasi.metode, no_rekening: noRek });
+    const nominal = Number(mutasi.nominal_rp || 0);
+
+    if (tm) {
+      // If the original mutasi was a KIRIM, it decreased the balance -> restore by adding nominal
+      // If it was a TERIMA, it increased the balance -> restore by subtracting nominal
+      if ((mutasi.jenis_kas || '').toString().toUpperCase() === 'KIRIM') {
+        tm.saldo_akhir = Number(tm.saldo_akhir || 0) + nominal;
+      } else if ((mutasi.jenis_kas || '').toString().toUpperCase() === 'TERIMA') {
+        tm.saldo_akhir = Number(tm.saldo_akhir || 0) - nominal;
+      }
+      await tm.save();
+    } else {
+      // If no tm_kas exists for this metode/no_rekening, create one representing the restored balance
+      let saldo = mutasi.saldo_akhir || 0;
+      if ((mutasi.jenis_kas || '').toString().toUpperCase() === 'KIRIM') {
+        saldo = Number(saldo) + nominal;
+      } else if ((mutasi.jenis_kas || '').toString().toUpperCase() === 'TERIMA') {
+        saldo = Number(saldo) - nominal;
+      }
+      await TmKas.create({ metode: mutasi.metode, no_rekening: noRek, saldo_akhir: saldo });
+    }
+
+    // For CASH methode, also create a SaldoCash record to reflect returned cash
+    if ((mutasi.metode || '').toString().toUpperCase() === 'CASH') {
+      try {
+        await SaldoCash.create({ nominal, input_by: created_by, tanggal: new Date() });
+      } catch (e) {
+        console.error('Failed to create SaldoCash record on cancel:', e);
+      }
+    }
+  } catch (err) {
+    // Log but do not fail the cancel operation
+    console.error('Failed to reverse tm_kas on cancelMutasiKas:', err);
+  }
+
   return mutasi;
 };

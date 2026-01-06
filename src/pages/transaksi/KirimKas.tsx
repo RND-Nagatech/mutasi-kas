@@ -239,7 +239,7 @@ export default function KirimKas() {
               {metode === 'TRANSFER' && (
                 <>
                   <div className="space-y-2 animate-slide-up">
-                    <Label htmlFor="noRekening">Rekening Tujuan</Label>
+                    <Label htmlFor="noRekening">Rekening</Label>
                     <Controller
                       name="noRekening"
                       control={control}

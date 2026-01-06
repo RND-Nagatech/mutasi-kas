@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Search, Calendar, FileText, FileSpreadsheet } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 import { masterTokoApi } from '@/services/api/masterTokoApi';
@@ -55,6 +55,7 @@ export default function LaporanKirimanSetoran() {
   const [showResults, setShowResults] = useState<boolean>(false);
   
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { data: tokoData } = useQuery({
     queryKey: ['toko'],
@@ -78,7 +79,7 @@ export default function LaporanKirimanSetoran() {
     enabled: !!filters.startDate && !!filters.endDate,
   });
 
-  const handleSearch = () => {
+  const handleSearch = async () => {
     if (!startDate || !endDate) {
       toast({
         title: 'Validasi',
@@ -91,15 +92,68 @@ export default function LaporanKirimanSetoran() {
       setDateError('Tanggal awal tidak boleh lebih besar dari tanggal akhir');
       return;
     }
-    setFilters(prev => ({
-      ...prev,
+    const newFilters = {
+      ...filters,
       startDate: formatDateForApi(startDate),
       endDate: formatDateForApi(endDate),
       kodeToko: pendingFilters.kodeToko,
       jenisTransaksi: pendingFilters.jenisTransaksi,
       metode: pendingFilters.metode,
       rekeningId: pendingFilters.rekeningId,
-    }));
+    } as KirimanSetoranFilter;
+
+    try {
+      if (!newFilters.metode) {
+        // If metode is "ALL" (undefined), prefetch both CASH and TRANSFER and the combined key
+        await Promise.all([
+          queryClient.fetchQuery({
+            queryKey: ['laporan-kiriman-setoran', { ...newFilters, metode: 'CASH' }],
+            queryFn: () => mutasiApi.getMutasi({
+              startDate: newFilters.startDate,
+              endDate: newFilters.endDate,
+              kodeToko: newFilters.kodeToko,
+              metode: 'CASH',
+              jenisTransaksi: newFilters.jenisTransaksi,
+            }),
+          }),
+          queryClient.fetchQuery({
+            queryKey: ['laporan-kiriman-setoran', { ...newFilters, metode: 'TRANSFER' }],
+            queryFn: () => mutasiApi.getMutasi({
+              startDate: newFilters.startDate,
+              endDate: newFilters.endDate,
+              kodeToko: newFilters.kodeToko,
+              metode: 'TRANSFER',
+              jenisTransaksi: newFilters.jenisTransaksi,
+            }),
+          }),
+          queryClient.fetchQuery({
+            queryKey: ['laporan-kiriman-setoran', newFilters],
+            queryFn: () => mutasiApi.getMutasi({
+              startDate: newFilters.startDate,
+              endDate: newFilters.endDate,
+              kodeToko: newFilters.kodeToko,
+              metode: newFilters.metode,
+              jenisTransaksi: newFilters.jenisTransaksi,
+            }),
+          }),
+        ]);
+      } else {
+        await queryClient.fetchQuery({
+          queryKey: ['laporan-kiriman-setoran', newFilters],
+          queryFn: () => mutasiApi.getMutasi({
+            startDate: newFilters.startDate,
+            endDate: newFilters.endDate,
+            kodeToko: newFilters.kodeToko,
+            metode: newFilters.metode,
+            jenisTransaksi: newFilters.jenisTransaksi,
+          }),
+        });
+      }
+    } catch (err) {
+      console.warn('prefetch failed', err);
+    }
+
+    setFilters(newFilters);
     setShowResults(true);
   };
 
@@ -128,6 +182,7 @@ export default function LaporanKirimanSetoran() {
       endDate: ed,
       filters,
       data: mutasiList,
+      rekeningList,
     });
   };
 
@@ -141,16 +196,48 @@ export default function LaporanKirimanSetoran() {
       endDate: ed,
       filters,
       data: mutasiList,
+      rekeningList,
     });
-    toast({ title: 'Export Excel', description: 'Fitur export Excel akan memanggil endpoint backend' });
   };
 
   // columns will be computed after tokoList/rekeningList are available
 
-  const mutasiList = Array.isArray(mutasiData) ? mutasiData : (mutasiData?.data || []);
+  const mutasiListRaw = Array.isArray(mutasiData) ? mutasiData : (mutasiData?.data || []);
   const tokoList = Array.isArray(tokoData) ? tokoData : (tokoData?.data || []);
   const rekeningList = Array.isArray(rekeningData) ? rekeningData : (rekeningData?.data || []);
   const showRekeningFilter = pendingFilters.metode === 'TRANSFER';
+
+  const selectedRekeningLabel = (() => {
+    if (!pendingFilters.rekeningId) return '';
+    const sel = rekeningList.find((r: any) => r.id === pendingFilters.rekeningId || r._id === pendingFilters.rekeningId);
+    if (!sel) return '';
+    const kode = sel.kodeBank || sel.kode_bank || '';
+    const no = sel.noRekening || sel.no_rekening || '';
+    return kode ? `${kode} - ${no}` : no;
+  })();
+
+  const selectedKodeTokoLabel = (() => {
+    if (!pendingFilters.kodeToko) return '';
+    const sel = tokoList.find((t: any) => (t.kodeToko === pendingFilters.kodeToko) || (t.kode_toko === pendingFilters.kodeToko));
+    if (!sel) return String(pendingFilters.kodeToko);
+    return `${sel.kodeToko || sel.kode_toko}${sel.namaToko || sel.nama_toko ? ' - ' + (sel.namaToko || sel.nama_toko) : ''}`;
+  })();
+
+  const selectedJenisLabel = pendingFilters.jenisTransaksi || 'SEMUA';
+  const selectedMetodeLabel = pendingFilters.metode || 'SEMUA';
+
+  // Apply local filtering for rekening because backend response may not include rekeningId
+  const mutasiList = (() => {
+    if (!filters.rekeningId) return mutasiListRaw;
+    const selectedRek = rekeningList.find((r: any) => r.id === filters.rekeningId || r._id === filters.rekeningId);
+    if (!selectedRek) return mutasiListRaw;
+    const targetNo = String(selectedRek.noRekening || selectedRek.no_rekening || '').replace(/[^0-9]/g, '');
+    if (!targetNo) return mutasiListRaw;
+    return mutasiListRaw.filter((m: any) => {
+      const rowNo = String(m.noRekening || m.no_rekening || m.rekening || '').replace(/[^0-9]/g, '');
+      return rowNo === targetNo;
+    });
+  })();
 
   const columns: Column<MutasiKas>[] = useMemo(() => {
     const getField = (obj: any, ...keys: string[]) => {
@@ -252,23 +339,8 @@ export default function LaporanKirimanSetoran() {
         cell: (item) => {
           const i: any = item;
           const metode = (getField(i, 'metode') || '').toString().toUpperCase();
-          // Transfer: prefer master rekening
-          const noRekFromRow = getField(i, 'noRekening', 'no_rekening', 'rekening');
-          const rekId = getField(i, 'rekeningId', 'rekening_id');
-          const master = rekeningList.find((r: any) => r.noRekening === noRekFromRow || r.no_rekening === noRekFromRow || r.id === rekId || r._id === rekId);
-          if (metode === 'TRANSFER') {
-            if (master) {
-              return (
-                <div>
-                  <p className="font-mono text-sm">{master.noRekening || master.no_rekening}</p>
-                  <p className="text-xs text-muted-foreground">{master.namaRekening || master.nama_rekening}</p>
-                </div>
-              );
-            }
-            return noRekFromRow ? <span className="font-mono">{noRekFromRow}</span> : <span className="text-muted-foreground">-</span>;
-          }
 
-          // CASH or other: try gramasi (fallback) then row fields
+          // CASH: show gramasi (e.g., "123 gr") or fallback to account number
           if (metode === 'CASH') {
             const gramRaw = getField(i, 'gramasi', 'gram', 'nominal_gr', 'nominalGr', 'nominalGrams', 'gramasiGr');
             if (gramRaw !== undefined && gramRaw !== null && (typeof gramRaw === 'number' || String(gramRaw).trim() !== '')) {
@@ -276,14 +348,24 @@ export default function LaporanKirimanSetoran() {
               if (gramNum > 0) return <span className="font-mono">{formatNumber(gramNum)} gr</span>;
             }
             const fromGramasi = typeof gramRaw === 'object' ? getField(gramRaw, 'noRekening', 'no_rekening') : gramRaw;
-            const finalRek = fromGramasi || noRekFromRow || getField(i, 'no_rekening') || null;
+            const finalRek = fromGramasi || getField(i, 'noRekening', 'no_rekening') || null;
             return finalRek ? <span className="font-mono">{finalRek}</span> : <span className="text-muted-foreground">-</span>;
           }
 
-          const gramasi = getField(i, 'gramasi');
-          const fromGramasi = typeof gramasi === 'object' ? getField(gramasi, 'noRekening', 'no_rekening') : gramasi;
-          const finalRek = fromGramasi || noRekFromRow || getField(i, 'no_rekening') || null;
-          return finalRek ? <span className="font-mono">{finalRek}</span> : <span className="text-muted-foreground">-</span>;
+          // Non-CASH: prefer kode bank - no rekening
+          const noRekFromRow = getField(i, 'noRekening', 'no_rekening', 'rekening') || '';
+          const rekId = getField(i, 'rekeningId', 'rekening_id') || null;
+          const master = rekeningList.find((r: any) => r.id === rekId || r._id === rekId || (r.noRekening || r.no_rekening) === noRekFromRow);
+
+          const kodeBank = master?.kodeBank || master?.kode_bank || getField(i, 'kodeBank', 'kode_bank') || '';
+          const account = master?.noRekening || master?.no_rekening || noRekFromRow || null;
+
+          if (!account) return <span className="text-muted-foreground">-</span>;
+          return (
+            <div>
+              <p className="font-mono text-sm">{kodeBank ? `${kodeBank} - ${account}` : account}</p>
+            </div>
+          );
         },
       },
     ];
@@ -332,7 +414,7 @@ export default function LaporanKirimanSetoran() {
                   <Button
                     variant="outline"
                     className={cn(
-                      'w-full justify-start text-left font-normal',
+                      'w-full justify-start text-left font-normal text-xs whitespace-normal break-words',
                       !startDate && 'text-muted-foreground'
                     )}
                   >
@@ -364,7 +446,7 @@ export default function LaporanKirimanSetoran() {
                   <Button
                     variant="outline"
                     className={cn(
-                      'w-full justify-start text-left font-normal',
+                      'w-full justify-start text-left font-normal text-xs whitespace-normal break-words',
                       !endDate && 'text-muted-foreground'
                     )}
                   >
@@ -394,7 +476,7 @@ export default function LaporanKirimanSetoran() {
                 value={pendingFilters.kodeToko || 'ALL'}
                 onValueChange={(value) => setPendingFilters(prev => ({ ...prev, kodeToko: value === 'ALL' ? undefined : value }))}
               >
-                <SelectTrigger>
+                <SelectTrigger title={selectedKodeTokoLabel} className="w-full justify-start text-left font-normal text-xs whitespace-normal break-words">
                   <SelectValue placeholder="SEMUA" />
                 </SelectTrigger>
                 <SelectContent className="bg-popover">
@@ -414,7 +496,7 @@ export default function LaporanKirimanSetoran() {
                 value={pendingFilters.jenisTransaksi || 'ALL'}
                 onValueChange={(value) => setPendingFilters(prev => ({ ...prev, jenisTransaksi: value === 'ALL' ? undefined : value }))}
               >
-                <SelectTrigger>
+                <SelectTrigger title={selectedJenisLabel} className="w-full justify-start text-left font-normal text-xs whitespace-normal break-words">
                   <SelectValue placeholder="SEMUA" />
                 </SelectTrigger>
                 <SelectContent className="bg-popover">
@@ -437,7 +519,7 @@ export default function LaporanKirimanSetoran() {
                   }))
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger title={selectedMetodeLabel} className="w-full justify-start text-left font-normal text-xs whitespace-normal break-words">
                   <SelectValue placeholder="SEMUA" />
                 </SelectTrigger>
                 <SelectContent className="bg-popover">
@@ -455,16 +537,19 @@ export default function LaporanKirimanSetoran() {
                   value={pendingFilters.rekeningId || 'ALL'}
                   onValueChange={(value) => setPendingFilters(prev => ({ ...prev, rekeningId: value === 'ALL' ? undefined : value }))}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger title={selectedRekeningLabel || 'SEMUA'} className="w-full justify-start text-left font-normal text-xs whitespace-normal break-words">
                     <SelectValue placeholder="SEMUA" />
                   </SelectTrigger>
                   <SelectContent className="bg-popover">
                     <SelectItem value="ALL">SEMUA</SelectItem>
-                    {rekeningList.map((rek: any) => (
-                      <SelectItem key={rek.id || rek._id || rek.no_rekening} value={rek.id || rek._id}>
-                        {rek.noRekening || rek.no_rekening} {rek.namaRekening || rek.nama_rekening ? `- ${rek.namaRekening || rek.nama_rekening}` : ''}
-                      </SelectItem>
-                    ))}
+                      {rekeningList.map((rek: any) => {
+                        const label = ((rek.kodeBank || rek.kode_bank) ? (rek.kodeBank || rek.kode_bank) + ' - ' : '') + (rek.noRekening || rek.no_rekening);
+                        return (
+                          <SelectItem key={rek.id || rek._id || rek.no_rekening} value={rek.id || rek._id} title={label}>
+                            {label}
+                          </SelectItem>
+                        );
+                      })}
                   </SelectContent>
                 </Select>
               </div>

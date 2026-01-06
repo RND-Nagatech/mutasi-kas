@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { Search, XCircle, Calendar } from 'lucide-react';
@@ -176,13 +176,7 @@ export default function BatalKirimKas() {
       key: 'metode',
       header: 'Metode',
       cell: (item) => (
-        <span className={`inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ${
-          item.metode === 'CASH' 
-            ? 'bg-warning/10 text-warning' 
-            : 'bg-info/10 text-info'
-        }`}>
-          {item.metode}
-        </span>
+        <span>{item.metode}</span>
       ),
     },
     {
@@ -194,7 +188,7 @@ export default function BatalKirimKas() {
     {
       key: 'status',
       header: 'Status',
-      cell: (item) => <StatusBadge status={item.status} />,
+      cell: (item) => <span>{item.status}</span>,
     },
     {
       key: 'actions',
@@ -217,6 +211,16 @@ export default function BatalKirimKas() {
   const mutasiList = !activeFilters ? [] : (Array.isArray(mutasiData) ? mutasiData : (mutasiData?.data || []));
   const tokoList = Array.isArray(tokoData) ? tokoData : (tokoData?.data || []);
   const hasFilters = pendingFilters.tanggal || pendingFilters.kodeToko || pendingFilters.noTransaksi;
+
+  // Pagination (client-side)
+  const [page, setPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
+  const pageSizes = [10, 50, 100];
+  const pageCount = Math.max(1, Math.ceil(mutasiList.length / pageSize));
+  const pagedMutasi = mutasiList.slice((page - 1) * pageSize, page * pageSize);
+
+  // Reset page when data or pageSize changes
+  useEffect(() => setPage(1), [mutasiList, pageSize]);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -306,11 +310,45 @@ export default function BatalKirimKas() {
       {/* Data Table */}
       <DataTable
         columns={columns}
-        data={mutasiList}
+        data={pagedMutasi}
         isLoading={isLoading}
         keyExtractor={(item) => item.id}
         emptyMessage={!activeFilters ? 'Klik Cari untuk menampilkan data' : 'Tidak ada transaksi yang dapat dibatalkan'}
       />
+
+      {/* Pagination controls */}
+      {mutasiList.length > 0 && (
+        <div className="mt-4 flex items-center justify-between">
+          <div>
+            <select
+              value={pageSize}
+              onChange={(e) => setPageSize(Number(e.target.value))}
+              className="border rounded px-3 py-2 bg-white"
+            >
+              {pageSizes.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              className="px-3 py-2 border rounded-md disabled:opacity-50"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1}
+            >Previous</button>
+            <div className="inline-flex items-center gap-2">
+              <span className="px-3 py-2 border rounded-md bg-white">{page}</span>
+              <span className="text-sm text-muted-foreground">of {pageCount}</span>
+            </div>
+            <button
+              className="px-3 py-2 border rounded-md disabled:opacity-50"
+              onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+              disabled={page >= pageCount}
+            >Next</button>
+          </div>
+        </div>
+      )}
 
       {/* Cancel Dialog */}
       <Dialog open={isCancelOpen} onOpenChange={setIsCancelOpen}>

@@ -31,7 +31,7 @@ export function exportMutasiKasPdf<T = any>(params: ExportReportParams<T>) {
   // Prepare table data
   const isRekap = String(filters?.type || '').toUpperCase() === 'REKAP';
   const headers = isRekap
-    ? ['No', 'Tanggal', 'Saldo Awal', 'Terima', 'Kirim', 'Saldo Akhir', 'Keterangan', 'No Rekening']
+    ? ['No', 'Tanggal', 'Saldo Awal', 'Terima', 'Kirim', 'Saldo Akhir']
     : ['No', 'Tanggal', 'Saldo Awal', 'Terima', 'Kirim', 'Tipe', 'Saldo Akhir', 'Keterangan', 'No Rekening'];
 
   // compute totals and body rows
@@ -45,8 +45,20 @@ export function exportMutasiKasPdf<T = any>(params: ExportReportParams<T>) {
     const tanggal = tanggalRaw ? formatDate(tanggalRaw) : '-';
     const saldoAwal = Number(m.saldoAwal ?? m.saldo_awal ?? 0) || 0;
     // Support both DETAIL (nominal fields) and REKAP (totalTerima/totalKirim)
-    const terima = Number(m.totalTerima ?? m.total_terima ?? m.nominalTerima ?? m.nominal_terima ?? m.nominal_rp_terima ?? 0) || 0;
-    const kirim = Number(m.totalKirim ?? m.total_kirim ?? m.nominal_rp ?? m.nominalRp ?? m.nominalKirim ?? m.nominal_kirim ?? 0) || 0;
+    let terima = 0;
+    let kirim = 0;
+    if (isRekap) {
+      terima = Number(m.totalTerima ?? m.total_terima ?? m.nominalTerima ?? m.nominal_terima ?? m.nominal_rp_terima ?? 0) || 0;
+      kirim = Number(m.totalKirim ?? m.total_kirim ?? m.nominal_rp ?? m.nominalRp ?? m.nominalKirim ?? m.nominal_kirim ?? 0) || 0;
+    } else {
+      const jenis = (m.jenisKas || m.jenis_kas || m.jenis || '').toString().toUpperCase();
+      terima = jenis === 'TERIMA'
+        ? Number(m.nominalTerima ?? m.nominal_terima ?? m.nominal_rp_terima ?? m.nominalRp ?? m.nominal_rp ?? 0) || 0
+        : 0;
+      kirim = jenis === 'KIRIM'
+        ? Number(m.nominalKirim ?? m.nominal_kirim ?? m.nominal_rp ?? m.nominalRp ?? 0) || 0
+        : 0;
+    }
     const saldoAkhir = Number(m.saldoAkhir ?? m.saldo_akhir ?? 0) || 0;
     const tipe = terima > 0 ? 'Terima' : (kirim > 0 ? 'Kirim' : (m.metode || '-'));
     const keterangan = m.keterangan || m.keterangan_transaksi || '';
@@ -74,8 +86,6 @@ export function exportMutasiKasPdf<T = any>(params: ExportReportParams<T>) {
         formatRupiah(terima),
         formatRupiah(kirim),
         formatRupiah(saldoAkhir),
-        keterangan,
-        noRek,
       ];
     }
 
@@ -96,7 +106,7 @@ export function exportMutasiKasPdf<T = any>(params: ExportReportParams<T>) {
   const usableWidth = pageWidth - margin * 2;
   // define widths in points by proportion (sum should be 1)
   const widths = isRekap
-    ? [0.05, 0.14, 0.12, 0.12, 0.12, 0.12, 0.19, 0.14].map(p => p * usableWidth)
+    ? [0.05, 0.18, 0.14, 0.14, 0.14, 0.35].map(p => p * usableWidth)
     : [0.04, 0.12, 0.11, 0.11, 0.11, 0.09, 0.11, 0.22, 0.09].map(p => p * usableWidth);
 
   // Build autoTable
@@ -109,12 +119,10 @@ export function exportMutasiKasPdf<T = any>(params: ExportReportParams<T>) {
       isRekap
         ? [
             { content: 'TOTAL', colSpan: 2, styles: { halign: 'left', fontStyle: 'bold' } },
-            { content: '', styles: {} },
+            { content: formatRupiah(totalSaldoAwal), styles: { halign: 'right', fontStyle: 'bold' } },
             { content: formatRupiah(totalTerima), styles: { halign: 'right', fontStyle: 'bold' } },
             { content: formatRupiah(totalKirim), styles: { halign: 'right', fontStyle: 'bold' } },
-            { content: '', styles: {} },
-            { content: '', styles: {} },
-            { content: '', styles: {} },
+            { content: formatRupiah(totalSaldoAkhir), styles: { halign: 'right', fontStyle: 'bold' } },
           ]
         : [
             { content: 'TOTAL', colSpan: 2, styles: { halign: 'left', fontStyle: 'bold' } },

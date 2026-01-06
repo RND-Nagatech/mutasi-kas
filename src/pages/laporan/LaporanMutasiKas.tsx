@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { Search, Calendar } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
@@ -133,6 +133,67 @@ export default function LaporanMutasiKas() {
     setFilters(newFilters);
     setSearchParams(newFilters);
   };
+  
+  // Ensure we fetch fresh data before applying filters so user doesn't need a page refresh
+  const queryClient = useQueryClient();
+  const handleSearchFetch = async () => {
+    if (!filters.type) {
+      toast({ title: 'Validasi', description: 'Pilih tipe laporan terlebih dahulu', variant: 'destructive' });
+      return;
+    }
+    if (!startDate || !endDate) {
+      toast({ title: 'Validasi', description: 'Pilih tanggal awal dan akhir', variant: 'destructive' });
+      return;
+    }
+    if (startDate.getTime() > endDate.getTime()) {
+      setDateError('Tanggal awal tidak boleh lebih besar dari tanggal akhir');
+      setSearchParams(null);
+      return;
+    }
+
+    const startIso = new Date(startDate);
+    startIso.setHours(0, 0, 0, 0);
+    const endIso = new Date(endDate);
+    endIso.setHours(23, 59, 59, 999);
+    const newFilters = {
+      ...filters,
+      startDate: startIso.toISOString(),
+      endDate: endIso.toISOString(),
+      kodeToko: filters.kodeToko,
+      metode: filters.metode,
+    } as LaporanMutasiFilter;
+
+    try {
+      if (!newFilters.metode) {
+        // If metode is ALL, prefetch both CASH and TRANSFER and also the combined key
+        await Promise.all([
+          queryClient.fetchQuery({
+            queryKey: ['laporan-mutasi', { ...newFilters, metode: 'CASH' }],
+            queryFn: () => mutasiApi.getMutasi({ ...newFilters, metode: 'CASH' }),
+          }),
+          queryClient.fetchQuery({
+            queryKey: ['laporan-mutasi', { ...newFilters, metode: 'TRANSFER' }],
+            queryFn: () => mutasiApi.getMutasi({ ...newFilters, metode: 'TRANSFER' }),
+          }),
+          queryClient.fetchQuery({
+            queryKey: ['laporan-mutasi', newFilters],
+            queryFn: () => mutasiApi.getMutasi(newFilters),
+          }),
+        ]);
+      } else {
+        await queryClient.fetchQuery({
+          queryKey: ['laporan-mutasi', newFilters],
+          queryFn: () => mutasiApi.getMutasi(newFilters),
+        });
+      }
+      setFilters(newFilters);
+      setSearchParams(newFilters);
+    } catch (err) {
+      console.warn('prefetch failed', err);
+      setFilters(newFilters);
+      setSearchParams(newFilters);
+    }
+  };
 
   // validate dates immediately when changed
   useEffect(() => {
@@ -168,10 +229,6 @@ export default function LaporanMutasiKas() {
       filters,
       data: mutasiList,
     });
-    toast({
-      title: 'Export Excel',
-      description: 'File Excel sedang diunduh',
-    });
   };
 
   // Kolom untuk DETAIL
@@ -182,8 +239,16 @@ export default function LaporanMutasiKas() {
         return raw ? formatDate(raw) : '-';
       } },
     { key: 'saldoAwal', header: 'Saldo Awal', cell: (item) => <CurrencyDisplay amount={item.saldoAwal || item.saldo_awal || 0} />, className: 'text-right' },
-    { key: 'terima', header: 'Terima', cell: (item) => <CurrencyDisplay amount={item.nominalTerima || item.nominal_terima || item.nominal_rp_terima || 0} />, className: 'text-right' },
-    { key: 'kirim', header: 'Kirim', cell: (item) => <CurrencyDisplay amount={item.nominal_rp || item.nominalRp || item.nominalKirim || item.nominal_kirim || 0} />, className: 'text-right' },
+    { key: 'terima', header: 'Terima', cell: (item) => {
+        const jenis = (item.jenisKas || item.jenis_kas || item.jenis || '').toString().toUpperCase();
+        const terima = jenis === 'TERIMA' ? (item.nominalTerima || item.nominal_terima || item.nominal_rp_terima || 0) : 0;
+        return <CurrencyDisplay amount={terima} />;
+      }, className: 'text-right' },
+    { key: 'kirim', header: 'Kirim', cell: (item) => {
+        const jenis = (item.jenisKas || item.jenis_kas || item.jenis || '').toString().toUpperCase();
+        const kirim = jenis === 'KIRIM' ? (item.nominal_rp || item.nominalRp || item.nominalKirim || item.nominal_kirim || 0) : 0;
+        return <CurrencyDisplay amount={kirim} />;
+      }, className: 'text-right' },
     { key: 'tipe', header: 'Tipe', cell: (item) => {
         const terima = item.nominalTerima || item.nominal_terima || item.nominal_rp_terima || 0;
         const kirim = item.nominal_rp || item.nominalRp || item.nominalKirim || item.nominal_kirim || 0;
@@ -237,9 +302,21 @@ export default function LaporanMutasiKas() {
     label: toko.nama_toko || toko.namaToko || toko.kode_toko || toko.kodeToko || String(toko.id || toko._id),
   }));
 
-  // Total untuk DETAIL
-  const totalTerima = mutasiList.reduce((sum, m) => sum + (m.nominalTerima || m.nominal_terima || m.nominal_rp_terima || 0), 0);
-  const totalKirim = mutasiList.reduce((sum, m) => sum + (m.nominal_rp || m.nominalRp || m.nominalKirim || m.nominal_kirim || 0), 0);
+  const selectedTypeLabel = filters.type || '';
+  const selectedKodeTokoLabel = tokoOptions.find(t => t.kode === filters.kodeToko)?.label || (filters.kodeToko || '');
+  const selectedMetodeLabel = filters.metode || 'SEMUA';
+
+  // Total untuk DETAIL (hitung sesuai jenis per baris)
+  const totalTerima = mutasiList.reduce((sum, m) => {
+    const jenis = (m.jenisKas || m.jenis_kas || m.jenis || '').toString().toUpperCase();
+    const terima = jenis === 'TERIMA' ? Number(m.nominalTerima ?? m.nominal_terima ?? m.nominal_rp_terima ?? 0) : 0;
+    return sum + terima;
+  }, 0);
+  const totalKirim = mutasiList.reduce((sum, m) => {
+    const jenis = (m.jenisKas || m.jenis_kas || m.jenis || '').toString().toUpperCase();
+    const kirim = jenis === 'KIRIM' ? Number(m.nominal_rp ?? m.nominalRp ?? m.nominalKirim ?? m.nominal_kirim ?? 0) : 0;
+    return sum + kirim;
+  }, 0);
   const totalSaldoAkhir = mutasiList.reduce((sum, m) => sum + (m.saldoAkhir || m.saldo_akhir || 0), 0);
   // Total untuk REKAP
   const totalRekapTerima = mutasiList.reduce((sum, m) => sum + (m.totalTerima || 0), 0);
@@ -268,7 +345,7 @@ export default function LaporanMutasiKas() {
                   setFilters(prev => ({ ...prev, type: value }))
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger title={selectedTypeLabel} className="w-full justify-start text-left font-normal text-xs whitespace-normal break-words">
                   <SelectValue placeholder="Pilih type laporan" />
                 </SelectTrigger>
                 <SelectContent className="bg-popover">
@@ -285,7 +362,7 @@ export default function LaporanMutasiKas() {
                   <Button
                     variant="outline"
                     className={cn(
-                      'w-full justify-start text-left font-normal',
+                      'w-full justify-start text-left font-normal text-xs whitespace-normal break-words',
                       !startDate && 'text-muted-foreground'
                     )}
                   >
@@ -313,7 +390,7 @@ export default function LaporanMutasiKas() {
                   <Button
                     variant="outline"
                     className={cn(
-                      'w-full justify-start text-left font-normal',
+                      'w-full justify-start text-left font-normal text-xs whitespace-normal break-words',
                       !endDate && 'text-muted-foreground'
                     )}
                   >
@@ -339,8 +416,8 @@ export default function LaporanMutasiKas() {
                 value={filters.kodeToko || 'ALL'}
                 onValueChange={(value) => setFilters(prev => ({ ...prev, kodeToko: value === 'ALL' ? undefined : value }))}
               >
-                <SelectTrigger>
-                    <SelectValue placeholder="SEMUA" />
+                <SelectTrigger title={selectedKodeTokoLabel} className="w-full justify-start text-left font-normal text-xs whitespace-normal break-words">
+                  <SelectValue placeholder="SEMUA" />
                 </SelectTrigger>
                 <SelectContent className="bg-popover">
                     <SelectItem value="ALL">SEMUA</SelectItem>
@@ -364,8 +441,8 @@ export default function LaporanMutasiKas() {
                   }))
                 }
               >
-                <SelectTrigger>
-                    <SelectValue placeholder="SEMUA" />
+                <SelectTrigger title={selectedMetodeLabel} className="w-full justify-start text-left font-normal text-xs whitespace-normal break-words">
+                  <SelectValue placeholder="SEMUA" />
                 </SelectTrigger>
                 <SelectContent className="bg-popover">
                     <SelectItem value="ALL">SEMUA</SelectItem>
@@ -377,7 +454,7 @@ export default function LaporanMutasiKas() {
           </div>
 
           <div className="mt-4 flex justify-end">
-            <Button onClick={handleSearch}>
+            <Button onClick={handleSearchFetch}>
               <Search className="mr-2 h-4 w-4" />
               Tampilkan Laporan
             </Button>
