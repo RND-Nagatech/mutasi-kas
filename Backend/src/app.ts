@@ -21,6 +21,19 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
+// =======================
+// Health Check
+// =======================
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    service: 'backend-api',
+    uptime: process.uptime(),          // detik
+    timestamp: new Date().toISOString()
+  });
+});
+
+
 app.use('/auth', authRoutes);
 app.use('/transaksi', transaksiRoutes);
 app.use('/master', masterRoutes);
