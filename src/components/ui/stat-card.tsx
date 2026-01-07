@@ -44,7 +44,7 @@ export function StatCard({
   }
 
   return (
-    <Card className={cn('animate-fade-in transition-shadow hover:shadow-md', className)}>
+    <Card className={cn('animate-fade-in transition-all duration-300 hover:shadow-xl hover:scale-105 border-0 bg-gradient-to-br from-white to-slate-50 dark:from-slate-800 dark:to-slate-900 shadow-lg', className)}>
       <CardContent className="p-6">
         <div className="flex items-center justify-between">
           <p className="text-sm font-medium text-muted-foreground">{title}</p>

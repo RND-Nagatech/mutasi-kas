@@ -23,7 +23,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { StatusBadge } from '@/components/ui/status-badge';
@@ -223,179 +223,236 @@ export default function BatalKirimKas() {
   useEffect(() => setPage(1), [mutasiList, pageSize]);
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <PageHeader
-        title="Batal Kirim Kas"
-        description="Batalkan transaksi kirim kas yang masih berstatus OPEN"
-      />
+    <div className="mx-auto max-w-7xl space-y-8">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Batal Kirim Kas</h1>
+          <p className="text-slate-600 dark:text-slate-400 mt-2">Batalkan transaksi kirim kas yang masih berstatus OPEN</p>
+        </div>
+      </div>
 
-      {/* Filters */}
-      <Card>
+      <div className=" rounded-lg shadow-sm">
+        <div className="grid gap-6 lg:grid-cols-3">
+        {/* Filter Form */}
+        <Card className="lg:col-span-2 bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border-slate-200/50 dark:border-slate-700/50">
+          <CardHeader className="space-y-3">
+            <CardTitle className="text-xl font-semibold text-slate-900 dark:text-slate-100">Filter Transaksi</CardTitle>
+            <CardDescription className="text-slate-600 dark:text-slate-400">
+              Pilih kriteria pencarian untuk menemukan transaksi yang akan dibatalkan
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="space-y-2">
+                <Label>Tanggal</Label>
+                <Popover open={dateOpen} onOpenChange={setDateOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        'w-full justify-start text-left font-normal',
+                        !selectedDate && 'text-muted-foreground'
+                      )}
+                    >
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {selectedDate ? formatDate(selectedDate) : 'Pilih tanggal'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0 bg-popover" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={handleDateSelect}
+                      initialFocus
+                      className="pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Kode Toko</Label>
+                <Select
+                  value={pendingFilters.kodeToko || 'ALL'}
+                  onValueChange={(value) => setPendingFilters(prev => ({ ...prev, kodeToko: value === 'ALL' ? '' : value }))}
+                >
+                  <SelectTrigger className="w-full justify-between text-left font-normal">
+                    <SelectValue placeholder="Semua Toko" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover max-h-48 overflow-auto">
+                    <SelectItem value="ALL">Semua Toko</SelectItem>
+                    {tokoList.map((t: any) => (
+                      <SelectItem key={t.id || t.kode_toko || t.kodeToko} value={t.kodeToko || t.kode_toko}>
+                        {(t.kodeToko || t.kode_toko) || '-'} - {(t.namaToko || t.nama_toko || t.kodeToko || t.kode_toko) || '-'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>No. Transaksi</Label>
+                <Input
+                  placeholder="Cari no. transaksi"
+                  value={pendingFilters.noTransaksi}
+                  onChange={(e) => setPendingFilters(prev => ({ ...prev, noTransaksi: e.target.value }))}
+                />
+              </div>
+
+              <div className="flex items-end gap-2">
+                <Button onClick={handleSearch} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white shadow-sm hover:shadow-md transition-all duration-200">
+                  <Search className="mr-2 h-4 w-4" />
+                  Cari
+                </Button>
+                {hasFilters && (
+                  <Button variant="outline" onClick={clearFilters} className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border-slate-200/50 dark:border-slate-700/50">
+                    Reset
+                  </Button>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Summary Card */}
+        <Card className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border-slate-200/50 dark:border-slate-700/50">
+          <CardHeader className="space-y-3">
+            <CardTitle className="text-lg font-semibold text-slate-900 dark:text-slate-100">Ringkasan</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">{mutasiList.length}</div>
+              <div className="text-sm text-slate-600 dark:text-slate-400">Transaksi Ditemukan</div>
+            </div>
+            <div className="text-center">
+              <div className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                <CurrencyDisplay amount={mutasiList.reduce((sum, item) => sum + (item.nominalKirim || 0), 0)} />
+              </div>
+              <div className="text-sm text-slate-600 dark:text-slate-400">Total Nominal</div>
+            </div>
+          </CardContent>
+        </Card>
+        </div>
+      </div>
+
+      {/* Data Table */}
+      <Card className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border-slate-200/50 dark:border-slate-700/50">
         <CardHeader>
-          <CardTitle className="text-base">Filter Transaksi</CardTitle>
+          <CardTitle className="text-xl font-semibold text-slate-900 dark:text-slate-100">Daftar Transaksi Kiriman</CardTitle>
+          <CardDescription className="text-slate-600 dark:text-slate-400">
+            Transaksi yang dapat dibatalkan (status OPEN/PENDING)
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="space-y-2">
-              <Label>Tanggal</Label>
-              <Popover open={dateOpen} onOpenChange={setDateOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      'w-full justify-start text-left font-normal',
-                      !selectedDate && 'text-muted-foreground'
-                    )}
-                  >
-                    <Calendar className="mr-2 h-4 w-4" />
-                    {selectedDate ? formatDate(selectedDate) : 'Pilih tanggal'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 bg-popover" align="start">
-                  <CalendarComponent
-                    mode="single"
-                    selected={selectedDate}
-                    onSelect={handleDateSelect}
-                    initialFocus
-                    className="pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Kode Toko</Label>
-              <Select
-                value={pendingFilters.kodeToko || 'ALL'}
-                onValueChange={(value) => setPendingFilters(prev => ({ ...prev, kodeToko: value === 'ALL' ? '' : value }))}
-              >
-                <SelectTrigger className="w-full justify-between text-left font-normal">
-                  <SelectValue placeholder="Semua Toko" />
-                </SelectTrigger>
-                <SelectContent className="bg-popover max-h-48 overflow-auto">
-                  <SelectItem value="ALL">Semua Toko</SelectItem>
-                  {tokoList.map((t: any) => (
-                    <SelectItem key={t.id || t.kode_toko || t.kodeToko} value={t.kodeToko || t.kode_toko}>
-                      {(t.kodeToko || t.kode_toko) || '-'} - {(t.namaToko || t.nama_toko || t.kodeToko || t.kode_toko) || '-'}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>No. Transaksi</Label>
-              <Input
-                placeholder="Cari no. transaksi"
-                value={pendingFilters.noTransaksi}
-                onChange={(e) => setPendingFilters(prev => ({ ...prev, noTransaksi: e.target.value }))}
-              />
-            </div>
-
-            <div className="flex items-end gap-2">
-              <Button onClick={handleSearch} className="flex-1">
-                <Search className="mr-2 h-4 w-4" />
-                Cari
-              </Button>
-              {hasFilters && (
-                <Button variant="outline" onClick={clearFilters}>
-                  Reset
-                </Button>
-              )}
-            </div>
-          </div>
+          <DataTable
+            columns={columns}
+            data={pagedMutasi}
+            isLoading={isLoading}
+            keyExtractor={(item) => item.id}
+            emptyMessage={!activeFilters ? 'Klik Cari untuk menampilkan data' : 'Tidak ada transaksi yang dapat dibatalkan'}
+          />
         </CardContent>
       </Card>
 
-      {/* Data Table */}
-      <DataTable
-        columns={columns}
-        data={pagedMutasi}
-        isLoading={isLoading}
-        keyExtractor={(item) => item.id}
-        emptyMessage={!activeFilters ? 'Klik Cari untuk menampilkan data' : 'Tidak ada transaksi yang dapat dibatalkan'}
-      />
-
       {/* Pagination controls */}
       {mutasiList.length > 0 && (
-        <div className="mt-4 flex items-center justify-between">
-          <div>
-            <select
-              value={pageSize}
-              onChange={(e) => setPageSize(Number(e.target.value))}
-              className="border rounded px-3 py-2 bg-white"
-            >
-              {pageSizes.map((s) => (
-                <option key={s} value={s}>{s}</option>
-              ))}
-            </select>
-          </div>
+        <Card className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border-slate-200/50 dark:border-slate-700/50">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Label className="text-sm font-medium">Tampilkan:</Label>
+                <select
+                  value={pageSize}
+                  onChange={(e) => setPageSize(Number(e.target.value))}
+                  className="border rounded-md px-3 py-2 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700"
+                >
+                  {pageSizes.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+                <span className="text-sm text-slate-600 dark:text-slate-400">per halaman</span>
+              </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              className="px-3 py-2 border rounded-md disabled:opacity-50"
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page <= 1}
-            >Previous</button>
-            <div className="inline-flex items-center gap-2">
-              <span className="px-3 py-2 border rounded-md bg-white">{page}</span>
-              <span className="text-sm text-muted-foreground">of {pageCount}</span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1}
+                  className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border-slate-200/50 dark:border-slate-700/50"
+                >
+                  Previous
+                </Button>
+                <div className="flex items-center gap-2 px-3 py-2 bg-white/50 dark:bg-slate-800/50 rounded-md">
+                  <span className="text-sm font-medium text-slate-900 dark:text-slate-100">{page}</span>
+                  <span className="text-sm text-slate-600 dark:text-slate-400">dari {pageCount}</span>
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+                  disabled={page >= pageCount}
+                  className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border-slate-200/50 dark:border-slate-700/50"
+                >
+                  Next
+                </Button>
+              </div>
             </div>
-            <button
-              className="px-3 py-2 border rounded-md disabled:opacity-50"
-              onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
-              disabled={page >= pageCount}
-            >Next</button>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Cancel Dialog */}
       <Dialog open={isCancelOpen} onOpenChange={setIsCancelOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Batalkan Transaksi</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="bg-white dark:bg-slate-800 backdrop-blur-sm border-slate-200 dark:border-slate-700 shadow-xl sm:max-w-md">
+          <DialogHeader className="pb-4">
+            <DialogTitle className="text-xl font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <XCircle className="w-5 h-5 text-red-500" />
+              Batalkan Transaksi
+            </DialogTitle>
+            <DialogDescription className="text-slate-600 dark:text-slate-400">
               Anda akan membatalkan transaksi{' '}
-              <span className="font-mono font-medium">{selectedMutasi?.noTransaksi}</span>
+              <span className="font-mono font-medium text-slate-900 dark:text-slate-100 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded">
+                {selectedMutasi?.noTransaksi}
+              </span>
             </DialogDescription>
           </DialogHeader>
 
           {selectedMutasi && (
-            <div className="rounded-lg bg-muted/50 p-4 space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Toko</span>
-                <span className="font-medium">{selectedMutasi.namaToko}</span>
+            <div className="rounded-lg bg-slate-50 dark:bg-slate-700/50 p-4 space-y-3 border border-slate-200 dark:border-slate-600">
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-medium text-slate-600 dark:text-slate-400 uppercase tracking-wide">Toko</span>
+                <span className="font-medium text-slate-900 dark:text-slate-100">{selectedMutasi.namaToko}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Nominal</span>
-                <CurrencyDisplay amount={selectedMutasi.nominalKirim} />
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-medium text-slate-600 dark:text-slate-400 uppercase tracking-wide">Nominal</span>
+                <CurrencyDisplay amount={selectedMutasi.nominalKirim} className="font-semibold text-slate-900 dark:text-slate-100" />
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Metode</span>
-                <span>{selectedMutasi.metode}</span>
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-medium text-slate-600 dark:text-slate-400 uppercase tracking-wide">Metode</span>
+                <span className="font-medium text-slate-900 dark:text-slate-100">{selectedMutasi.metode}</span>
               </div>
             </div>
           )}
 
-          <div className="space-y-2">
-            <Label htmlFor="alasan">Alasan Pembatalan</Label>
+          <div className="space-y-3">
+            <Label htmlFor="alasan" className="text-sm font-medium text-slate-900 dark:text-slate-100 uppercase tracking-wide">Alasan Pembatalan</Label>
             <Textarea
               id="alasan"
               placeholder="Masukkan alasan pembatalan..."
               value={alasan}
               onChange={(e) => setAlasan(e.target.value)}
               rows={3}
+              className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus:border-red-500"
             />
           </div>
 
-          <DialogFooter>
-            <Button 
-              variant="outline" 
+          <DialogFooter className="pt-4 border-t border-slate-200 dark:border-slate-700 gap-2">
+            <Button
+              variant="outline"
               onClick={() => {
                 setIsCancelOpen(false);
                 setAlasan('');
               }}
+              className="bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 transition-all duration-200"
             >
               Tutup
             </Button>
@@ -403,6 +460,7 @@ export default function BatalKirimKas() {
               variant="destructive"
               onClick={confirmCancel}
               disabled={!alasan.trim() || batalMutation.isPending}
+              className="bg-red-600 hover:bg-red-700 text-white shadow-sm hover:shadow-md transition-all duration-200"
             >
               {batalMutation.isPending ? (
                 <>
@@ -410,7 +468,10 @@ export default function BatalKirimKas() {
                   Membatalkan...
                 </>
               ) : (
-                'Batalkan Transaksi'
+                <>
+                  <XCircle className="mr-2 h-4 w-4" />
+                  Batalkan Transaksi
+                </>
               )}
             </Button>
           </DialogFooter>

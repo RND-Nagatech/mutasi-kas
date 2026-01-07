@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { PageHeader } from '@/components/ui/page-header';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,9 +15,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CurrencyDisplay } from '@/components/ui/currency-display';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Check, ChevronsUpDown } from 'lucide-react';
 import { masterTokoApi } from '@/services/api/masterTokoApi';
 import { rekeningApi } from '@/services/api/rekeningApi';
 import { mutasiApi } from '@/services/api/mutasiApi';
@@ -76,6 +88,8 @@ export default function KirimKas() {
   const [saldoAwal, setSaldoAwal] = useState<number>(0);
   const [showConfirm, setShowConfirm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [openToko, setOpenToko] = useState(false);
+  const [openRekening, setOpenRekening] = useState(false);
 
   const kodeToko = watch('kodeToko');
   const metode = watch('metode');
@@ -111,18 +125,21 @@ export default function KirimKas() {
   }, [kodeToko, metode, noRekening]);
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <PageHeader
-        title="Kirim Kas"
-        description="Buat transaksi pengiriman kas ke toko"
-      />
+    <div className="mx-auto max-w-7xl space-y-8">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Kirim Kas</h1>
+          <p className="text-slate-600 dark:text-slate-400 mt-2">Buat transaksi pengiriman kas ke toko</p>
+        </div>
+      </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 p-6 rounded-lg shadow-sm">
+        <div className="grid gap-6 lg:grid-cols-3">
         {/* Form */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Form Kirim Kas</CardTitle>
-            <CardDescription>
+        <Card className="lg:col-span-2 bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border-slate-200/50 dark:border-slate-700/50">
+          <CardHeader className="space-y-3">
+            <CardTitle className="text-xl font-semibold text-slate-900 dark:text-slate-100">Form Kirim Kas</CardTitle>
+            <CardDescription className="text-slate-600 dark:text-slate-400">
               Lengkapi data berikut untuk membuat transaksi kirim kas
             </CardDescription>
           </CardHeader>
@@ -140,19 +157,55 @@ export default function KirimKas() {
                   name="kodeToko"
                   control={control}
                   render={({ field }) => (
-                    <Select onValueChange={val => { field.onChange(val); }} value={field.value}>
-                      <SelectTrigger className={errors.kodeToko ? 'border-destructive' : ''}>
-                        <SelectValue placeholder="Pilih Toko" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-popover max-h-48 overflow-auto">
-                        {tokoList.length === 0 && (
-                          <div className="px-4 py-2 text-sm text-muted-foreground">Memuat data toko...</div>
-                        )}
-                        {tokoList.map(toko => (
-                          <SelectItem key={toko.kode_toko} value={toko.kode_toko}>{toko.nama_toko}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Popover open={openToko} onOpenChange={setOpenToko}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={openToko}
+                          className={`w-full justify-between ${errors.kodeToko ? 'border-destructive' : ''} ${!field.value && 'text-muted-foreground'}`}
+                        >
+                          {field.value
+                            ? tokoList.find((toko) => toko.kode_toko === field.value)?.nama_toko || "Pilih Toko"
+                            : "Pilih Toko"}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                        <Command>
+                          <CommandInput placeholder="Cari toko..." className="h-9" />
+                          <CommandList>
+                            <CommandEmpty>Toko tidak ditemukan.</CommandEmpty>
+                            <CommandGroup>
+                              {tokoList.length === 0 ? (
+                                <div className="px-4 py-2 text-sm text-muted-foreground">Memuat data toko...</div>
+                              ) : (
+                                tokoList.map((toko) => (
+                                  <CommandItem
+                                    key={toko.kode_toko}
+                                    value={`${toko.kode_toko} ${toko.nama_toko}`}
+                                    onSelect={() => {
+                                      field.onChange(toko.kode_toko);
+                                      setOpenToko(false);
+                                    }}
+                                  >
+                                    <Check
+                                      className={`mr-2 h-4 w-4 ${
+                                        field.value === toko.kode_toko ? "opacity-100" : "opacity-0"
+                                      }`}
+                                    />
+                                    <div className="flex flex-col">
+                                      <span className="font-medium">{toko.nama_toko}</span>
+                                      <span className="text-sm text-muted-foreground">{toko.kode_toko}</span>
+                                    </div>
+                                  </CommandItem>
+                                ))
+                              )}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                   )}
                 />
                 {errors.kodeToko && (
@@ -244,17 +297,55 @@ export default function KirimKas() {
                       name="noRekening"
                       control={control}
                       render={({ field }) => (
-                        <Select onValueChange={val => field.onChange(val)} value={field.value}>
-                          <SelectTrigger className={errors.noRekening ? 'border-destructive' : ''}>
-                            <SelectValue placeholder="Pilih Rekening" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-popover">
-                            {rekeningList.length === 0 && <div className="px-4 py-2 text-sm text-muted-foreground">Memuat rekening...</div>}
-                            {rekeningList.map(rek => (
-                              <SelectItem key={rek.noRekening} value={rek.noRekening}>{rek.namaRekening} - {rek.noRekening}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <Popover open={openRekening} onOpenChange={setOpenRekening}>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              aria-expanded={openRekening}
+                              className={`w-full justify-between ${errors.noRekening ? 'border-destructive' : ''} ${!field.value && 'text-muted-foreground'}`}
+                            >
+                              {field.value
+                                ? rekeningList.find((rek) => rek.noRekening === field.value)?.namaRekening + ' - ' + field.value || "Pilih Rekening"
+                                : "Pilih Rekening"}
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                            <Command>
+                              <CommandInput placeholder="Cari rekening..." className="h-9" />
+                              <CommandList>
+                                <CommandEmpty>Rekening tidak ditemukan.</CommandEmpty>
+                                <CommandGroup>
+                                  {rekeningList.length === 0 ? (
+                                    <div className="px-4 py-2 text-sm text-muted-foreground">Memuat rekening...</div>
+                                  ) : (
+                                    rekeningList.map((rek) => (
+                                      <CommandItem
+                                        key={rek.noRekening}
+                                        value={`${rek.noRekening} ${rek.namaRekening}`}
+                                        onSelect={() => {
+                                          field.onChange(rek.noRekening);
+                                          setOpenRekening(false);
+                                        }}
+                                      >
+                                        <Check
+                                          className={`mr-2 h-4 w-4 ${
+                                            field.value === rek.noRekening ? "opacity-100" : "opacity-0"
+                                          }`}
+                                        />
+                                        <div className="flex flex-col">
+                                          <span className="font-medium">{rek.namaRekening}</span>
+                                          <span className="text-sm text-muted-foreground">{rek.noRekening}</span>
+                                        </div>
+                                      </CommandItem>
+                                    ))
+                                  )}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
                       )}
                     />
                     {errors.noRekening && <p className="text-xs text-destructive">{errors.noRekening.message}</p>}
@@ -299,16 +390,24 @@ export default function KirimKas() {
                 />
               </div>
 
-              <div className="flex gap-2">
-                <Button type="submit" className="w-full" disabled={isNominalExceedSaldo || submitting || nominalKirim <= 0}>Kirim Kas</Button>
+              <div className="flex gap-2 pt-4">
+                <Button 
+                  type="submit" 
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-sm hover:shadow-md transition-all duration-200" 
+                  disabled={isNominalExceedSaldo || submitting || nominalKirim <= 0}
+                >
+                  Kirim Kas
+                </Button>
               </div>
 
             </form>
             {/* Konfirmasi dialog */}
             <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Konfirmasi Kirim Kas</DialogTitle>
+              <DialogContent className="sm:max-w-md bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-xl">
+                <DialogHeader className="space-y-3">
+                  <DialogTitle className="text-xl font-semibold text-slate-900 dark:text-slate-100">
+                    Konfirmasi Kirim Kas
+                  </DialogTitle>
                 </DialogHeader>
                 <div className="space-y-2">
                   <div><strong>Toko:</strong> {kodeToko}</div>
@@ -319,71 +418,84 @@ export default function KirimKas() {
                   <div><strong>Saldo Awal:</strong> Rp {saldoAwal.toLocaleString('id-ID')}</div>
                   <div><strong>Saldo Akhir:</strong> Rp {saldoAkhir.toLocaleString('id-ID')}</div>
                 </div>
-                <DialogFooter>
-                  <Button onClick={async () => {
-                    // submit to backend
-                    setSubmitting(true);
-                    try {
-                      await mutasiApi.createMutasi({
-                        kode_toko: kodeToko,
-                        metode,
-                        no_rekening: metode === 'TRANSFER' ? noRekening : '-',
-                        nominal_rp: nominalKirim,
-                        gramasi: gramasi || 0,
-                        keterangan: (watch('keterangan') as any) || '-',
-                        saldo_awal: saldoAwal,
-                        saldo_akhir: saldoAkhir,
-                        kode_bank: '-',
-                        // provide tanggal and jam to satisfy model validation
-                        tanggal: new Date().toISOString(),
-                        jam: new Date().toLocaleTimeString('id-ID', { hour12: false }),
-                      });
-                      // close confirmation
-                      setShowConfirm(false);
-                      // reset form to initial state so page appears fresh
-                      reset({ kodeToko: '', metode: undefined, noRekening: '', nominalKirim: 0, keterangan: '-', gramasi: undefined });
-                      // Ensure the Select shows the placeholder text by clearing the value
-                      setValue('metode', '' as any);
-                      // clear displayed saldo
-                      setSaldoAwal(0);
-                    } catch (err) {
-                      // TODO: show error toast
-                    }
-                    setSubmitting(false);
-                  }} disabled={submitting || nominalKirim <= 0}>OK & Simpan</Button>
-                  <Button variant="outline" onClick={() => setShowConfirm(false)} disabled={submitting}>Batal</Button>
+                <DialogFooter className="gap-3">
+                  <Button 
+                    onClick={async () => {
+                      // submit to backend
+                      setSubmitting(true);
+                      try {
+                        await mutasiApi.createMutasi({
+                          kode_toko: kodeToko,
+                          metode,
+                          no_rekening: metode === 'TRANSFER' ? noRekening : '-',
+                          nominal_rp: nominalKirim,
+                          gramasi: gramasi || 0,
+                          keterangan: (watch('keterangan') as any) || '-',
+                          saldo_awal: saldoAwal,
+                          saldo_akhir: saldoAkhir,
+                          kode_bank: '-',
+                          // provide tanggal and jam to satisfy model validation
+                          tanggal: new Date().toISOString(),
+                          jam: new Date().toLocaleTimeString('id-ID', { hour12: false }),
+                        });
+                        // close confirmation
+                        setShowConfirm(false);
+                        // reset form to initial state so page appears fresh
+                        reset({ kodeToko: '', metode: undefined, noRekening: '', nominalKirim: 0, keterangan: '-', gramasi: undefined });
+                        // Ensure the Select shows the placeholder text by clearing the value
+                        setValue('metode', '' as any);
+                        // clear displayed saldo
+                        setSaldoAwal(0);
+                      } catch (err) {
+                        // TODO: show error toast
+                      }
+                      setSubmitting(false);
+                    }} 
+                    disabled={submitting || nominalKirim <= 0}
+                    className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm hover:shadow-md transition-all duration-200"
+                  >
+                    OK & Simpan
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setShowConfirm(false)} 
+                    disabled={submitting}
+                    className="border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700"
+                  >
+                    Batal
+                  </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
           </CardContent>
         </Card>
 
-        {/* Summary */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Ringkasan Transaksi</CardTitle>
+        <Card className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border-slate-200/50 dark:border-slate-700/50">
+          <CardHeader className="space-y-3">
+            <CardTitle className="text-xl font-semibold text-slate-900 dark:text-slate-100">Ringkasan Transaksi</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="pt-2 border-t">
-              <div className="flex justify-between py-1">
-                <span className="text-muted-foreground">Saldo Awal</span>
-                <CurrencyDisplay amount={saldoAwal} />
+          <CardContent className="space-y-4">
+            <div className="pt-2 border-t border-slate-200 dark:border-slate-700">
+              <div className="flex justify-between py-2">
+                <span className="text-slate-700 dark:text-slate-300">Saldo Awal</span>
+                <CurrencyDisplay amount={saldoAwal} className="font-medium text-slate-900 dark:text-slate-100" />
               </div>
-              <div className="flex justify-between py-1">
-                <span className="text-muted-foreground">Nominal Kirim</span>
-                <CurrencyDisplay amount={nominalKirim || 0} className="text-destructive" />
+              <div className="flex justify-between py-2">
+                <span className="text-slate-700 dark:text-slate-300">Nominal Kirim</span>
+                <CurrencyDisplay amount={nominalKirim || 0} className="font-medium text-red-600 dark:text-red-400" />
               </div>
-              <div className="flex justify-between pt-2 border-t font-semibold">
-                <span>Saldo Akhir</span>
+              <div className="flex justify-between pt-3 border-t border-slate-200 dark:border-slate-700 font-semibold">
+                <span className="text-slate-900 dark:text-slate-100">Saldo Akhir</span>
                 <CurrencyDisplay 
                   amount={saldoAkhir} 
                   highlightNegative 
-                  className="text-lg"
+                  className="text-lg text-slate-900 dark:text-slate-100"
                 />
               </div>
             </div>
           </CardContent>
         </Card>
+      </div>
       </div>
     </div>
   );

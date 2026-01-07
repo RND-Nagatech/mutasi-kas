@@ -109,6 +109,12 @@ export interface MutasiKas {
   keterangan?: string;
   createdAt: string;
   updatedAt: string;
+  jenis_kas?: string;
+  nominal_kirim?: number;
+  nominal?: number;
+  nominal_rp?: number;
+  nominalTerima?: number;
+  nominal_terima?: number;
 }
 
 export interface KirimKasRequest {

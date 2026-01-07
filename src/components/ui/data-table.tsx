@@ -43,14 +43,14 @@ export function DataTable<T>({
   }
 
   return (
-    <div className={cn('rounded-lg border bg-card overflow-hidden', className)}>
+    <div className={cn('rounded-xl border bg-card overflow-hidden shadow-sm', className)}>
       <Table>
         <TableHeader>
-          <TableRow className="bg-muted/50 hover:bg-muted/50">
+          <TableRow className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 hover:from-slate-100 hover:to-slate-50 dark:hover:from-slate-700 dark:hover:to-slate-800 border-b border-slate-200 dark:border-slate-700">
             {columns.map((column) => (
               <TableHead 
                 key={column.key} 
-                className={cn('font-semibold text-foreground', column.className)}
+                className={cn('font-semibold text-foreground py-4 px-6 text-left', column.className)}
               >
                 {column.header}
               </TableHead>
@@ -62,23 +62,26 @@ export function DataTable<T>({
             <TableRow>
               <TableCell 
                 colSpan={columns.length} 
-                className="h-32 text-center text-muted-foreground"
+                className="h-32 text-center text-muted-foreground py-8"
               >
                 {emptyMessage}
               </TableCell>
             </TableRow>
           ) : (
-            data.map((item) => (
+            data.map((item, index) => (
               <TableRow 
                 key={keyExtractor(item)}
                 onClick={() => onRowClick?.(item)}
                 className={cn(
-                  'transition-colors',
-                  onRowClick && 'cursor-pointer hover:bg-accent/50'
+                  'transition-all duration-200 border-b border-slate-100 dark:border-slate-700/50',
+                  index % 2 === 0 
+                    ? 'bg-white/30 dark:bg-slate-800/30' 
+                    : 'bg-slate-50/30 dark:bg-slate-700/30',
+                  onRowClick && 'cursor-pointer hover:bg-blue-50/50 dark:hover:bg-blue-900/20 hover:z-10 relative'
                 )}
               >
                 {columns.map((column) => (
-                  <TableCell key={column.key} className={column.className}>
+                  <TableCell key={column.key} className={cn('py-4 px-6', column.className)}>
                     {column.cell(item)}
                   </TableCell>
                 ))}

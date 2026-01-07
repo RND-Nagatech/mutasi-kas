@@ -7,7 +7,7 @@ import { DataTable, type Column } from '@/components/ui/data-table';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -208,81 +208,170 @@ export default function TerimaKas() {
   }, [selectedIds, mutasiList]);
 
   return (
-    <div className="animate-fade-in space-y-6">
-      <PageHeader title="Terima Setoran" description="Terima kiriman kas dari toko" />
+    <div className="mx-auto max-w-7xl space-y-8">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Terima Setoran</h1>
+          <p className="text-slate-600 dark:text-slate-400 mt-2">Terima kiriman kas dari toko</p>
+        </div>
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Filter Transaksi</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="space-y-2">
-              <Label>Tanggal</Label>
-              <Popover open={dateOpen} onOpenChange={setDateOpen}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start text-left font-normal">
-                    <Calendar className="mr-2 h-4 w-4" />
-                    {selectedDate ? format(selectedDate, 'dd/MM/yyyy') : 'Pilih tanggal'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto bg-popover p-0" align="start">
-                  <CalendarComponent mode="single" selected={selectedDate} onSelect={(d) => { setSelectedDate(d as Date); setDateOpen(false); }} />
-                </PopoverContent>
-              </Popover>
-            </div>
+      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-lg shadow-sm">
+        <div className="grid gap-6 lg:grid-cols-3">
+        {/* Filter Form */}
+        <Card className="lg:col-span-2 bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border-slate-200/50 dark:border-slate-700/50">
+          <CardHeader className="space-y-3">
+            <CardTitle className="text-xl font-semibold text-slate-900 dark:text-slate-100">Filter Transaksi</CardTitle>
+            <CardDescription className="text-slate-600 dark:text-slate-400">
+              Pilih tanggal dan toko untuk menampilkan transaksi kiriman yang belum diterima
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="space-y-2">
+                <Label>Tanggal</Label>
+                <Popover open={dateOpen} onOpenChange={setDateOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-start text-left font-normal">
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {selectedDate ? format(selectedDate, 'dd/MM/yyyy') : 'Pilih tanggal'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto bg-popover p-0" align="start">
+                    <CalendarComponent mode="single" selected={selectedDate} onSelect={(d) => { setSelectedDate(d as Date); setDateOpen(false); }} />
+                  </PopoverContent>
+                </Popover>
+              </div>
 
-            <div className="space-y-2">
-              <Label>Kode Toko</Label>
-              <Select value={pendingToko ?? 'ALL'} onValueChange={(val) => setPendingToko(val === 'ALL' ? undefined : val)}>
-                <SelectTrigger className="w-full justify-between text-left font-normal">
-                  <SelectValue placeholder="SEMUA" />
-                </SelectTrigger>
-                <SelectContent className="max-h-48 overflow-auto bg-popover">
-                  <SelectItem value="ALL">SEMUA</SelectItem>
-                  {tokoList.map((t: any) => (
-                    <SelectItem key={t.id || t.kode_toko || t.kodeToko} value={t.kodeToko || t.kode_toko}>
-                      {t.namaToko || t.nama_toko || t.kodeToko || t.kode_toko}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+              <div className="space-y-2">
+                <Label>Kode Toko</Label>
+                <Select value={pendingToko ?? 'ALL'} onValueChange={(val) => setPendingToko(val === 'ALL' ? undefined : val)}>
+                  <SelectTrigger className="w-full justify-between text-left font-normal">
+                    <SelectValue placeholder="SEMUA" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-48 overflow-auto bg-popover">
+                    <SelectItem value="ALL">SEMUA</SelectItem>
+                    {tokoList.map((t: any) => (
+                      <SelectItem key={t.id || t.kode_toko || t.kodeToko} value={t.kodeToko || t.kode_toko}>
+                        {t.namaToko || t.nama_toko || t.kodeToko || t.kode_toko}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-            <div className="col-span-2 flex items-end justify-end gap-2">
-              <Button onClick={handleSearch} className="flex items-center"><Search className="mr-2 h-4 w-4" /> Tampilkan</Button>
+              <div className="col-span-2 flex items-end justify-end gap-2">
+                <Button onClick={handleSearch} className="flex items-center bg-blue-600 hover:bg-blue-700 text-white shadow-sm hover:shadow-md transition-all duration-200">
+                  <Search className="mr-2 h-4 w-4" /> Tampilkan
+                </Button>
+              </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+
+        {/* Summary Card */}
+        <Card className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border-slate-200/50 dark:border-slate-700/50">
+          <CardHeader className="space-y-3">
+            <CardTitle className="text-lg font-semibold text-slate-900 dark:text-slate-100">Ringkasan</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">{mutasiList.length}</div>
+              <div className="text-sm text-slate-600 dark:text-slate-400">Transaksi Ditemukan</div>
+            </div>
+            <div className="text-center">
+              <div className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+                <CurrencyDisplay amount={mutasiList.reduce((sum, item) => sum + ((item as any).nominal_rp || (item as any).nominalRp || (item as any).nominalKirim || (item as any).nominal || 0), 0)} />
+              </div>
+              <div className="text-sm text-slate-600 dark:text-slate-400">Total Nominal</div>
+            </div>
+          </CardContent>
+        </Card>
+        </div>
+      </div>
 
       {showResults && (
         <>
-          <DataTable columns={columns} data={mutasiList} isLoading={isLoading} keyExtractor={(item) => item.id} onRowClick={(item) => setDetailMutasi(item)} emptyMessage="Tidak ada transaksi untuk tanggal dan toko ini" />
+          <Card className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border-slate-200/50 dark:border-slate-700/50">
+            <CardHeader>
+              <CardTitle className="text-xl font-semibold text-slate-900 dark:text-slate-100">Daftar Transaksi Kiriman</CardTitle>
+              <CardDescription className="text-slate-600 dark:text-slate-400">
+                Pilih transaksi yang akan diterima atau ditolak
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <DataTable columns={columns} data={mutasiList} isLoading={isLoading} keyExtractor={(item) => item.id} onRowClick={(item) => setDetailMutasi(item)} emptyMessage="Tidak ada transaksi untuk tanggal dan toko ini" />
+            </CardContent>
+          </Card>
 
-          <div className="mt-4 flex gap-3">
-            <button onClick={handleTerima} className="w-full rounded-md bg-emerald-700 py-2 text-sm font-medium text-white hover:bg-emerald-800">Terima</button>
-            <button onClick={handleReject} className="w-full rounded-md bg-red-600 py-2 text-sm font-medium text-white hover:bg-red-700">Reject</button>
-          </div>
+          <Card className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border-slate-200/50 dark:border-slate-700/50">
+            <CardContent className="pt-6">
+              <div className="flex gap-3">
+                <Button 
+                  onClick={handleTerima} 
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm hover:shadow-md transition-all duration-200" 
+                  disabled={selectedIds.size === 0}
+                >
+                  Terima ({selectedIds.size})
+                </Button>
+                <Button 
+                  onClick={handleReject} 
+                  variant="destructive" 
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white shadow-sm hover:shadow-md transition-all duration-200" 
+                  disabled={selectedIds.size === 0}
+                >
+                  Reject ({selectedIds.size})
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </>
       )}
 
       <Dialog open={!!detailMutasi} onOpenChange={() => setDetailMutasi(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Detail Kiriman</DialogTitle>
+        <DialogContent className="bg-white dark:bg-slate-800 backdrop-blur-sm border-slate-200 dark:border-slate-700 shadow-xl">
+          <DialogHeader className="pb-4">
+            <DialogTitle className="text-xl font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+              Detail Kiriman
+            </DialogTitle>
           </DialogHeader>
           {detailMutasi && (
-            <div className="space-y-2">
-                    <div><strong>No. Transaksi:</strong> {detailMutasi.noTransaksi || (detailMutasi as any).no_transaksi}</div>
-                    <div><strong>Toko:</strong> {detailMutasi.namaToko || (detailMutasi as any).nama_toko || detailMutasi.kodeToko}</div>
-                    <div><strong>Nominal:</strong> <CurrencyDisplay amount={(detailMutasi as any).nominal_rp || detailMutasi.nominalKirim || (detailMutasi as any).nominal || 0} /></div>
-                    <div><strong>Metode:</strong> {detailMutasi.metode}</div>
-                    <div><strong>Keterangan:</strong> {detailMutasi.keterangan || (detailMutasi as any).keterangan_transaksi || '-'}</div>
+            <div className="space-y-6">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <div className="text-sm font-medium text-slate-600 dark:text-slate-400 uppercase tracking-wide">No. Transaksi</div>
+                  <div className="font-mono text-sm text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-700 px-3 py-2 rounded-md border">{detailMutasi.noTransaksi || (detailMutasi as any).no_transaksi}</div>
+                </div>
+                <div className="space-y-2">
+                  <div className="text-sm font-medium text-slate-600 dark:text-slate-400 uppercase tracking-wide">Toko</div>
+                  <div className="text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-700 px-3 py-2 rounded-md border">{detailMutasi.namaToko || (detailMutasi as any).nama_toko || detailMutasi.kodeToko}</div>
+                </div>
+                <div className="space-y-2">
+                  <div className="text-sm font-medium text-slate-600 dark:text-slate-400 uppercase tracking-wide">Nominal</div>
+                  <div className="text-lg font-semibold text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-700 px-3 py-2 rounded-md border">
+                    <CurrencyDisplay amount={(detailMutasi as any).nominal_rp || detailMutasi.nominalKirim || (detailMutasi as any).nominal || 0} />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="text-sm font-medium text-slate-600 dark:text-slate-400 uppercase tracking-wide">Metode</div>
+                  <div className="text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-700 px-3 py-2 rounded-md border font-medium">{detailMutasi.metode}</div>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-slate-600 dark:text-slate-400 uppercase tracking-wide">Keterangan</div>
+                <div className="text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-700 px-3 py-2 rounded-md border min-h-[2.5rem]">{detailMutasi.keterangan || (detailMutasi as any).keterangan_transaksi || '-'}</div>
+              </div>
             </div>
           )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDetailMutasi(null)}>Tutup</Button>
+          <DialogFooter className="pt-6 border-t border-slate-200 dark:border-slate-700">
+            <Button 
+              variant="outline" 
+              onClick={() => setDetailMutasi(null)} 
+              className="bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 transition-all duration-200 font-medium px-6"
+            >
+              Tutup
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

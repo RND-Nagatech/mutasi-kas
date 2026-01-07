@@ -3,12 +3,11 @@ import { useQuery } from '@tanstack/react-query';
 import { saldoCashApi } from '@/services/api/saldoCashApi';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { DataTable, type Column } from '@/components/ui/data-table';
 import { Button } from '@/components/ui/button';
 import { Plus, Pencil, Trash2, Loader2 } from 'lucide-react';
 import RupiahInput from '@/components/ui/rupiah-input';
 import { Label } from '@/components/ui/label';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { CurrencyDisplay } from '@/components/ui/currency-display';
 import {
   Dialog,
@@ -16,6 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from '@/components/ui/dialog';
 
 export default function InputSaldoCash() {
@@ -72,123 +72,179 @@ export default function InputSaldoCash() {
     setPage(1);
   };
 
+  const columns: Column<any>[] = [
+    {
+      key: 'nominal',
+      header: 'Nominal',
+      cell: (item) => <CurrencyDisplay amount={item.nominal} />,
+    },
+    {
+      key: 'inputBy',
+      header: 'Input Oleh',
+      cell: (item) => <span className="text-slate-700 dark:text-slate-300">{item.input_by}</span>,
+    },
+    {
+      key: 'tanggal',
+      header: 'Tanggal Input',
+      cell: (item) => {
+        const date = item.tanggal || item.created_at;
+        if (!date) return <span className="text-slate-500 dark:text-slate-400">-</span>;
+        return (
+          <div className="text-sm">
+            <div className="font-medium text-slate-900 dark:text-slate-100">
+              {new Date(date).toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta' })}
+            </div>
+            <div className="text-slate-500 dark:text-slate-400">
+              {new Date(date).toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta' })}
+            </div>
+          </div>
+        );
+      },
+    },
+  ];
+
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="mx-auto max-w-7xl space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Master Saldo Cash</h1>
-          <p className="text-muted-foreground">Daftar seluruh saldo cash</p>
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Master Saldo Cash</h1>
+          <p className="text-slate-600 dark:text-slate-400 mt-2">Kelola data saldo cash untuk transaksi</p>
         </div>
-        <Button onClick={() => setIsFormOpen(true)} className="bg-[#295c6a] hover:bg-[#1b3d47] text-white">
+        <Button 
+          className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm hover:shadow-md transition-all duration-200" 
+          onClick={() => setIsFormOpen(true)}
+        >
           <Plus className="mr-2 h-4 w-4" />
-         Tambah Data
+          Tambah Data
         </Button>
       </div>
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Tambah Saldo Cash</DialogTitle>
+        <DialogContent className="sm:max-w-md bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-xl">
+          <DialogHeader className="space-y-3">
+            <DialogTitle className="text-xl font-semibold text-slate-900 dark:text-slate-100">
+              Tambah Saldo Cash
+            </DialogTitle>
+            <DialogDescription className="text-slate-600 dark:text-slate-400">
+              Masukkan informasi saldo cash baru
+            </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="nominal">Nominal Saldo Cash</Label>
+              <Label htmlFor="nominal" className="text-sm font-medium text-slate-700 dark:text-slate-300">Nominal Saldo Cash</Label>
               <RupiahInput
                 id="nominal"
                 value={nominalNumber}
                 onValueChange={(v) => { setNominalNumber(v); setNominal(String(v)); }}
                 placeholder="Masukkan nominal saldo cash"
                 required
-                className={error ? 'border-destructive' : ''}
+                className={`border-slate-300 dark:border-slate-600 focus:ring-blue-500 focus:border-blue-500 ${error ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : ''}`}
               />
-              {error && <p className="text-xs text-destructive">{error}</p>}
+              {error && <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1">
+                <span className="w-1 h-1 bg-red-500 rounded-full"></span>
+                {error}
+              </p>}
             </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsFormOpen(false)}>
+            <DialogFooter className="gap-3">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setIsFormOpen(false)}
+                className="border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700"
+              >
                 Batal
               </Button>
-              <Button type="submit" className="bg-[#295c6a] hover:bg-[#1b3d47] text-white" disabled={loading || nominalNumber <= 0}>
+              <Button 
+                type="submit" 
+                className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm hover:shadow-md transition-all duration-200" 
+                disabled={loading || nominalNumber <= 0}
+              >
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {loading ? 'Menyimpan...' : 'Simpan'}
               </Button>
             </DialogFooter>
-            {success && <div className="mt-2 text-green-600">Saldo cash berhasil disimpan!</div>}
+            {success && <div className="mt-2 text-green-600 dark:text-green-400">Saldo cash berhasil disimpan!</div>}
           </form>
         </DialogContent>
       </Dialog>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Daftar Saldo Cash</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="mb-2 flex items-center justify-between">
-            <div>
-              <label htmlFor="pageSize" className="mr-2 text-sm">Tampilkan</label>
-              <select
-                id="pageSize"
-                value={pageSize}
-                onChange={handlePageSizeChange}
-                className="rounded border px-2 py-1 text-sm"
-              >
-                <option value={10}>10</option>
-                <option value={50}>50</option>
-                <option value={100}>100</option>
-              </select>
-              <span className="ml-2 text-sm">data</span>
-            </div>
-            <div className="text-sm text-muted-foreground">
-              Total: {totalData}
-            </div>
+      <div className="flex items-center justify-between bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm border border-slate-200 dark:border-slate-700">
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Tampilkan</span>
+          <select
+            id="pageSize"
+            value={pageSize}
+            onChange={handlePageSizeChange}
+            className="rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+          >
+            <option value={10}>10</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+          </select>
+          <span className="text-sm text-slate-600 dark:text-slate-400">data per halaman</span>
+        </div>
+        <div className="text-sm text-slate-600 dark:text-slate-400">
+          Total: <span className="font-semibold text-slate-900 dark:text-slate-100">{totalData}</span> data
+        </div>
+      </div>
+
+      <DataTable
+        columns={columns}
+        data={paginatedData}
+        isLoading={isLoading}
+        keyExtractor={(item) => `${item.id}`}
+        emptyMessage="Belum ada data saldo cash"
+        className="shadow-sm bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border-slate-200/50 dark:border-slate-700/50"
+      />
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between bg-white dark:bg-slate-800 rounded-xl p-4 shadow-sm border border-slate-200 dark:border-slate-700">
+          <div className="text-sm text-slate-600 dark:text-slate-400">
+            Menampilkan {Math.min((page - 1) * pageSize + 1, totalData)} - {Math.min(page * pageSize, totalData)} dari {totalData} data
           </div>
-          {isLoading ? (
-            <div>Loading...</div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nominal</TableHead>
-                  <TableHead>Input Oleh</TableHead>
-                  <TableHead>Tanggal Input</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {(Array.isArray(paginatedData) && paginatedData.length > 0) ? (
-                  paginatedData.map((item: any, idx: number) => (
-                    <TableRow key={idx}>
-                      <TableCell><CurrencyDisplay amount={item.nominal} /></TableCell>
-                      <TableCell>{item.input_by}</TableCell>
-                      <TableCell>{item.tanggal ? new Date(item.tanggal).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }) : '-'}</TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={3} className="text-center">Tidak ada data</TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          )}
-          {/* Pagination Controls */}
-          {totalPages > 1 && (
-            <div className="mt-2 flex items-center justify-end gap-2">
-              <button
-                className="rounded border px-2 py-1 text-sm"
-                disabled={page === 1}
-                onClick={() => handlePageChange(page - 1)}
-              >
-                Prev
-              </button>
-              <span className="text-sm">Halaman {page} dari {totalPages}</span>
-              <button
-                className="rounded border px-2 py-1 text-sm"
-                disabled={page === totalPages}
-                onClick={() => handlePageChange(page + 1)}
-              >
-                Next
-              </button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page === 1}
+              onClick={() => handlePageChange(page - 1)}
+              className="border-slate-300 dark:border-slate-600 hover:bg-white dark:hover:bg-slate-800 transition-colors"
+            >
+              Sebelumnya
+            </Button>
+            
+            <div className="flex items-center gap-1">
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                const pageNum = Math.max(1, Math.min(totalPages - 4, page - 2)) + i;
+                if (pageNum > totalPages) return null;
+                return (
+                  <button
+                    key={pageNum}
+                    className={`inline-flex items-center justify-center rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                      pageNum === page
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
+                    }`}
+                    onClick={() => handlePageChange(pageNum)}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
             </div>
-          )}
-        </CardContent>
-      </Card>
+
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page === totalPages}
+              onClick={() => handlePageChange(page + 1)}
+              className="border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+            >
+              Selanjutnya
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Search, Calendar, FileText, FileSpreadsheet } from 'lucide-react';
+import { Search, Calendar, FileText, FileSpreadsheet, Download } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 import { masterTokoApi } from '@/services/api/masterTokoApi';
 import { rekeningApi } from '@/services/api/rekeningApi';
@@ -14,11 +14,31 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { CurrencyDisplay } from '@/components/ui/currency-display';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 // TODO: Replace toko/rekening with backend API if available
 import { mutasiApi } from '@/services/api/mutasiApi';
 import { formatDate, formatDateTime, formatRupiah, formatDateForApi, formatNumber } from '@/utils/format';
@@ -27,6 +47,8 @@ import { exportKirimanSetoranExcel } from '@/services/export/exportKirimanSetora
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import type { MutasiKas, MetodeTransaksi } from '@/types';
+import { Check, ChevronsUpDown } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 interface KirimanSetoranFilter {
   startDate: string;
@@ -53,6 +75,7 @@ export default function LaporanKirimanSetoran() {
   const [endOpen, setEndOpen] = useState<boolean>(false);
   const [dateError, setDateError] = useState<string | null>(null);
   const [showResults, setShowResults] = useState<boolean>(false);
+  const [openToko, setOpenToko] = useState(false);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -394,261 +417,434 @@ export default function LaporanKirimanSetoran() {
   }, 0);
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <PageHeader
-        title="Laporan Kiriman & Setoran Toko"
-        description="Lihat laporan kiriman dan setoran berdasarkan toko"
-      />
+    <div className="mx-auto max-w-7xl space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Laporan Kiriman & Setoran Toko</h1>
+          <p className="text-slate-600 dark:text-slate-400 mt-2">Lihat laporan kiriman dan setoran berdasarkan toko</p>
+        </div>
+      </div>
 
-      {/* Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Filter Laporan</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-            <div className="space-y-2">
-              <Label>Tanggal Awal</Label>
-              <Popover open={startOpen} onOpenChange={setStartOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      'w-full justify-start text-left font-normal text-xs whitespace-normal break-words',
-                      !startDate && 'text-muted-foreground'
-                    )}
-                  >
-                    <Calendar className="mr-2 h-4 w-4" />
-                    {startDate ? formatDate(startDate) : 'Pilih'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 bg-popover" align="start">
-                  <CalendarComponent
-                    mode="single"
-                    selected={startDate}
-                    onSelect={(d) => {
-                      setStartDate(d as Date);
-                      setDateError(null);
-                      setStartOpen(false);
-                    }}
-                    initialFocus
-                    className="pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
-              {dateError && <p className="text-xs text-destructive mt-1">{dateError}</p>}
-            </div>
+      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-lg shadow-sm">
+        <div className="space-y-4">
 
-            <div className="space-y-2">
-              <Label>Tanggal Akhir</Label>
-              <Popover open={endOpen} onOpenChange={setEndOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      'w-full justify-start text-left font-normal text-xs whitespace-normal break-words',
-                      !endDate && 'text-muted-foreground'
-                    )}
-                  >
-                    <Calendar className="mr-2 h-4 w-4" />
-                    {endDate ? formatDate(endDate) : 'Pilih'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 bg-popover" align="start">
-                  <CalendarComponent
-                    mode="single"
-                    selected={endDate}
-                    onSelect={(d) => {
-                      setEndDate(d as Date);
-                      setDateError(null);
-                      setEndOpen(false);
-                    }}
-                    initialFocus
-                    className="pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
+          {/* Filters */}
+          <Card className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border-slate-200/50 dark:border-slate-700/50">
+            <CardHeader className="space-y-3">
+              <CardTitle className="text-xl font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <Search className="w-5 h-5 text-blue-600" />
+                Filter Laporan
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium text-slate-900 dark:text-slate-100 uppercase tracking-wide">Tanggal Awal</Label>
+                <Popover open={startOpen} onOpenChange={setStartOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        'w-full justify-start text-left font-normal bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all duration-200 h-9',
+                        !startDate && 'text-slate-500 dark:text-slate-400'
+                      )}
+                    >
+                      <Calendar className="mr-2 h-3.5 w-3.5 text-blue-600" />
+                      {startDate ? formatDate(startDate) : 'Pilih tanggal'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-xl" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={startDate}
+                      onSelect={(d) => {
+                        setStartDate(d as Date);
+                        setDateError(null);
+                        setStartOpen(false);
+                      }}
+                      initialFocus
+                      className="pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+                {dateError && <p className="text-xs text-red-600 dark:text-red-400 mt-1 font-medium">{dateError}</p>}
+              </div>
 
-            <div className="space-y-2">
-              <Label>Kode Toko</Label>
-              <Select
-                value={pendingFilters.kodeToko || 'ALL'}
-                onValueChange={(value) => setPendingFilters(prev => ({ ...prev, kodeToko: value === 'ALL' ? undefined : value }))}
-              >
-                <SelectTrigger title={selectedKodeTokoLabel} className="w-full justify-start text-left font-normal text-xs whitespace-normal break-words">
-                  <SelectValue placeholder="SEMUA" />
-                </SelectTrigger>
-                <SelectContent className="bg-popover">
-                  <SelectItem value="ALL">SEMUA</SelectItem>
-                  {tokoList.map((toko: any) => (
-                    <SelectItem key={toko.id || toko.kode_toko || toko.kodeToko} value={toko.kodeToko || toko.kode_toko}>
-                      {toko.kodeToko || toko.kode_toko} {toko.namaToko || toko.nama_toko ? `- ${toko.namaToko || toko.nama_toko}` : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium text-slate-900 dark:text-slate-100 uppercase tracking-wide">Tanggal Akhir</Label>
+                <Popover open={endOpen} onOpenChange={setEndOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        'w-full justify-start text-left font-normal bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all duration-200 h-9',
+                        !endDate && 'text-slate-500 dark:text-slate-400'
+                      )}
+                    >
+                      <Calendar className="mr-2 h-3.5 w-3.5 text-blue-600" />
+                      {endDate ? formatDate(endDate) : 'Pilih tanggal'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-xl" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={endDate}
+                      onSelect={(d) => {
+                        setEndDate(d as Date);
+                        setDateError(null);
+                        setEndOpen(false);
+                      }}
+                      initialFocus
+                      className="pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
 
-            <div className="space-y-2">
-              <Label>Jenis Transaksi</Label>
-              <Select
-                value={pendingFilters.jenisTransaksi || 'ALL'}
-                onValueChange={(value) => setPendingFilters(prev => ({ ...prev, jenisTransaksi: value === 'ALL' ? undefined : value }))}
-              >
-                <SelectTrigger title={selectedJenisLabel} className="w-full justify-start text-left font-normal text-xs whitespace-normal break-words">
-                  <SelectValue placeholder="SEMUA" />
-                </SelectTrigger>
-                <SelectContent className="bg-popover">
-                  <SelectItem value="ALL">SEMUA</SelectItem>
-                  <SelectItem value="KIRIM">KIRIM</SelectItem>
-                  <SelectItem value="TERIMA">TERIMA</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium text-slate-900 dark:text-slate-100 uppercase tracking-wide">Kode Toko</Label>
+                <Popover open={openToko} onOpenChange={setOpenToko}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={openToko}
+                      className={`w-full justify-between bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all duration-200 h-9 ${!pendingFilters.kodeToko && 'text-slate-500 dark:text-slate-400'}`}
+                    >
+                      {pendingFilters.kodeToko
+                        ? (() => {
+                            const sel = tokoList.find((t: any) => (t.kodeToko === pendingFilters.kodeToko) || (t.kode_toko === pendingFilters.kodeToko));
+                            return sel ? `${sel.kodeToko || sel.kode_toko} - ${sel.namaToko || sel.nama_toko}` : "Pilih Toko";
+                          })()
+                        : "SEMUA TOKO"}
+                      <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-xl" align="start">
+                    <Command>
+                      <CommandInput placeholder="Cari toko..." className="h-8" />
+                      <CommandList>
+                        <CommandEmpty>Toko tidak ditemukan.</CommandEmpty>
+                        <CommandGroup>
+                          <CommandItem
+                            value="ALL"
+                            onSelect={() => {
+                              setPendingFilters(prev => ({ ...prev, kodeToko: undefined }));
+                              setOpenToko(false);
+                            }}
+                          >
+                            <Check
+                              className={`mr-2 h-3.5 w-3.5 ${
+                                !pendingFilters.kodeToko ? "opacity-100" : "opacity-0"
+                              }`}
+                            />
+                            <span>SEMUA TOKO</span>
+                          </CommandItem>
+                          {tokoList.map((toko: any) => (
+                            <CommandItem
+                              key={toko.id || toko.kode_toko || toko.kodeToko}
+                              value={`${toko.kodeToko || toko.kode_toko} ${toko.namaToko || toko.nama_toko}`}
+                              onSelect={() => {
+                                setPendingFilters(prev => ({ ...prev, kodeToko: toko.kodeToko || toko.kode_toko }));
+                                setOpenToko(false);
+                              }}
+                            >
+                              <Check
+                                className={`mr-2 h-3.5 w-3.5 ${
+                                  pendingFilters.kodeToko === (toko.kodeToko || toko.kode_toko) ? "opacity-100" : "opacity-0"
+                                }`}
+                              />
+                              <div className="flex flex-col">
+                                <span className="font-medium text-sm">{toko.namaToko || toko.nama_toko}</span>
+                                <span className="text-xs text-slate-500 dark:text-slate-400">{toko.kodeToko || toko.kode_toko}</span>
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
 
-            <div className="space-y-2">
-              <Label>Metode</Label>
-              <Select
-                value={pendingFilters.metode || 'ALL'}
-                onValueChange={(value) => 
-                  setPendingFilters(prev => ({ 
-                    ...prev, 
-                    metode: value === 'ALL' ? undefined : (value as MetodeTransaksi),
-                    rekeningId: value !== 'TRANSFER' ? undefined : prev.rekeningId,
-                  }))
-                }
-              >
-                <SelectTrigger title={selectedMetodeLabel} className="w-full justify-start text-left font-normal text-xs whitespace-normal break-words">
-                  <SelectValue placeholder="SEMUA" />
-                </SelectTrigger>
-                <SelectContent className="bg-popover">
-                  <SelectItem value="ALL">SEMUA</SelectItem>
-                  <SelectItem value="CASH">CASH</SelectItem>
-                  <SelectItem value="TRANSFER">TRANSFER</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {showRekeningFilter && (
-              <div className="space-y-2">
-                <Label>Rekening</Label>
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium text-slate-900 dark:text-slate-100 uppercase tracking-wide">Jenis Transaksi</Label>
                 <Select
-                  value={pendingFilters.rekeningId || 'ALL'}
-                  onValueChange={(value) => setPendingFilters(prev => ({ ...prev, rekeningId: value === 'ALL' ? undefined : value }))}
+                  value={pendingFilters.jenisTransaksi || 'ALL'}
+                  onValueChange={(value) => setPendingFilters(prev => ({ ...prev, jenisTransaksi: value === 'ALL' ? undefined : value }))}
                 >
-                  <SelectTrigger title={selectedRekeningLabel || 'SEMUA'} className="w-full justify-start text-left font-normal text-xs whitespace-normal break-words">
+                  <SelectTrigger className="w-full justify-between text-left font-normal bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus:border-blue-500 transition-all duration-200 h-9">
                     <SelectValue placeholder="SEMUA" />
                   </SelectTrigger>
-                  <SelectContent className="bg-popover">
+                  <SelectContent className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700">
                     <SelectItem value="ALL">SEMUA</SelectItem>
-                      {rekeningList.map((rek: any) => {
-                        const label = ((rek.kodeBank || rek.kode_bank) ? (rek.kodeBank || rek.kode_bank) + ' - ' : '') + (rek.noRekening || rek.no_rekening);
-                        return (
-                          <SelectItem key={rek.id || rek._id || rek.no_rekening} value={rek.id || rek._id} title={label}>
-                            {label}
-                          </SelectItem>
-                        );
-                      })}
+                    <SelectItem value="KIRIM">KIRIM</SelectItem>
+                    <SelectItem value="TERIMA">TERIMA</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-            )}
-          </div>
 
-          <div className="mt-4 flex justify-end">
-            <Button onClick={handleSearch}>
-              <Search className="mr-2 h-4 w-4" />
-              Tampilkan Laporan
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Data Table */}
-      {showResults && filters.startDate && filters.endDate && (
-        <>
-          <DataTable
-            columns={columns}
-            data={pagedMutasi}
-            isLoading={isLoading}
-            keyExtractor={(item) => item.id}
-            emptyMessage="Tidak ada data untuk filter yang dipilih"
-            footer={(
-              <>
-                <tr className="bg-muted/50 border-t">
-                  <td className="p-4 font-semibold text-foreground">Total</td>
-                  <td className="p-4" />
-                  <td className="p-4" />
-                  <td className="p-4" />
-                  <td className="p-4 text-right font-semibold text-foreground">
-                    <CurrencyDisplay amount={totalKirim} />
-                  </td>
-                  <td className="p-4 text-right font-semibold text-foreground">
-                    <CurrencyDisplay amount={totalSetor} />
-                  </td>
-                  <td className="p-4" />
-                  <td className="p-4" />
-                  <td className="p-4" />
-                  <td className="p-4" />
-                </tr>
-              </>
-            )}
-          />
-
-          {/* External pagination + export (styled) */}
-          <div className="mt-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <select
-                  value={pageSize}
-                  onChange={(e) => setPageSize(Number(e.target.value))}
-                  className="border rounded px-3 py-2 bg-white"
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium text-slate-900 dark:text-slate-100 uppercase tracking-wide">Metode</Label>
+                <Select
+                  value={pendingFilters.metode || 'ALL'}
+                  onValueChange={(value) => 
+                    setPendingFilters(prev => ({ 
+                      ...prev, 
+                      metode: value === 'ALL' ? undefined : (value as MetodeTransaksi),
+                      rekeningId: value !== 'TRANSFER' ? undefined : prev.rekeningId,
+                    }))
+                  }
                 >
-                  {pageSizes.map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
+                  <SelectTrigger className="w-full justify-between text-left font-normal bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus:border-blue-500 transition-all duration-200 h-9">
+                    <SelectValue placeholder="SEMUA" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700">
+                    <SelectItem value="ALL">SEMUA</SelectItem>
+                    <SelectItem value="CASH">CASH</SelectItem>
+                    <SelectItem value="TRANSFER">TRANSFER</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  className="px-3 py-2 border rounded-md disabled:opacity-50"
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page <= 1}
-                >Previous</button>
-                <div className="inline-flex items-center gap-2">
-                  <span className="px-3 py-2 border rounded-md bg-white">{page}</span>
-                  <span className="text-sm text-muted-foreground">of {pageCount}</span>
+
+              {showRekeningFilter && (
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-slate-900 dark:text-slate-100 uppercase tracking-wide">Rekening</Label>
+                  <Select
+                    value={pendingFilters.rekeningId || 'ALL'}
+                    onValueChange={(value) => setPendingFilters(prev => ({ ...prev, rekeningId: value === 'ALL' ? undefined : value }))}
+                  >
+                    <SelectTrigger className="w-full justify-between text-left font-normal bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus:border-blue-500 transition-all duration-200 h-9">
+                      <SelectValue placeholder="SEMUA" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700">
+                      <SelectItem value="ALL">SEMUA</SelectItem>
+                        {rekeningList.map((rek: any) => {
+                          const label = ((rek.kodeBank || rek.kode_bank) ? (rek.kodeBank || rek.kode_bank) + ' - ' : '') + (rek.noRekening || rek.no_rekening);
+                          return (
+                            <SelectItem key={rek.id || rek._id || rek.no_rekening} value={rek.id || rek._id} title={label}>
+                              {label}
+                            </SelectItem>
+                          );
+                        })}
+                    </SelectContent>
+                  </Select>
                 </div>
-                <button
-                  className="px-3 py-2 border rounded-md disabled:opacity-50"
-                  onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
-                  disabled={page >= pageCount}
-                >Next</button>
-              </div>
+              )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4 mt-4">
-              <button
-                onClick={handleExportPDF}
-                className="w-full py-2 rounded-md bg-amber-500 hover:bg-amber-600 text-white font-medium text-sm"
+            <div className="mt-4 flex justify-end">
+              <Button
+                onClick={handleSearch}
+                className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm hover:shadow-md transition-all duration-200 px-4 py-2 h-9"
               >
-                Export PDF
-              </button>
-              <button
-                onClick={handleExportExcel}
-                className="w-full py-2 rounded-md bg-emerald-700 hover:bg-emerald-800 text-white font-medium text-sm"
-              >
-                Export Excel
-              </button>
+                <Search className="mr-2 h-3.5 w-3.5" />
+                Tampilkan Laporan
+              </Button>
             </div>
-          </div>
+          </CardContent>
+        </Card>
 
-          {/* Totals moved into the table footer above */}
+          {/* Data Table */}
+          <Card className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border-slate-200/50 dark:border-slate-700/50">
+            <CardHeader className="space-y-3">
+              <CardTitle className="text-xl font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <FileText className="w-5 h-5 text-blue-600" />
+                Data Laporan Kiriman & Setoran
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                    <span className="text-sm">Memuat data...</span>
+                  </div>
+                </div>
+              ) : mutasiList.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <FileText className="w-12 h-12 text-slate-400 dark:text-slate-500 mb-4" />
+                  <h3 className="text-lg font-medium text-slate-900 dark:text-slate-100 mb-2">Tidak ada data</h3>
+                  <p className="text-slate-600 dark:text-slate-400 max-w-sm">
+                    Belum ada data laporan kiriman dan setoran untuk kriteria yang dipilih. Silakan ubah filter atau tambahkan data baru.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+                      <span>Menampilkan {pagedMutasi.length} dari {mutasiList.length} data</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleExportExcel}
+                        className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all duration-200 h-9"
+                      >
+                        <Download className="mr-2 h-3.5 w-3.5" />
+                        Export Excel
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleExportPDF}
+                        className="bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all duration-200 h-9"
+                      >
+                        <Download className="mr-2 h-3.5 w-3.5" />
+                        Export PDF
+                      </Button>
+                    </div>
+                  </div>
 
-          {/* Summary cards removed */}
-        </>
-      )}
+                  <div className="border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden bg-white dark:bg-slate-800">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-slate-50 dark:bg-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-700/50">
+                          <TableHead className="font-semibold text-slate-900 dark:text-slate-100">No</TableHead>
+                          <TableHead className="font-semibold text-slate-900 dark:text-slate-100">Kode Toko</TableHead>
+                          <TableHead className="font-semibold text-slate-900 dark:text-slate-100">Tanggal</TableHead>
+                          <TableHead className="font-semibold text-slate-900 dark:text-slate-100">Jam</TableHead>
+                          <TableHead className="font-semibold text-slate-900 dark:text-slate-100 text-right">Kirim</TableHead>
+                          <TableHead className="font-semibold text-slate-900 dark:text-slate-100 text-right">Setor</TableHead>
+                          <TableHead className="font-semibold text-slate-900 dark:text-slate-100">Pembuat</TableHead>
+                          <TableHead className="font-semibold text-slate-900 dark:text-slate-100">Penerima</TableHead>
+                          <TableHead className="font-semibold text-slate-900 dark:text-slate-100 text-center">Metode</TableHead>
+                          <TableHead className="font-semibold text-slate-900 dark:text-slate-100">No Rekening</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {pagedMutasi.map((item: any, index: number) => (
+                          <TableRow key={item.id || index} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors duration-150">
+                            <TableCell className="font-medium text-slate-900 dark:text-slate-100">{(page - 1) * pageSize + index + 1}</TableCell>
+                            <TableCell className="text-slate-700 dark:text-slate-300">
+                              <div>
+                                <p className="font-medium">{item.kodeToko || item.kode_toko || item.tokoKode || '-'}</p>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">
+                                  {(() => {
+                                    const kode = item.kodeToko || item.kode_toko || item.tokoKode;
+                                    const master = tokoList.find((t: any) => (t.kodeToko === kode) || (t.kode_toko === kode) || t.id === item.tokoId);
+                                    return master?.namaToko || master?.nama_toko || item.namaToko || item.nama_toko || '-';
+                                  })()}
+                                </p>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-slate-700 dark:text-slate-300">{formatDate(item.createdAt || item.created_at)}</TableCell>
+                            <TableCell className="text-slate-700 dark:text-slate-300">
+                              {(() => {
+                                const d = new Date(item.createdAt || item.created_at || new Date());
+                                return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                              })()}
+                            </TableCell>
+                            <TableCell className="text-right font-medium text-slate-900 dark:text-slate-100">
+                              {(() => {
+                                const jenis = (item.jenisKas || item.jenis_kas || item.jenis || '').toString().toUpperCase();
+                                const amt = item.nominalRp || item.nominal_rp || item.nominalKirim || item.nominal_kirim || item.nominal || item.amount || 0;
+                                return jenis === 'KIRIM' ? <CurrencyDisplay amount={Number(amt) || 0} /> : <span className="text-slate-400 dark:text-slate-500">-</span>;
+                              })()}
+                            </TableCell>
+                            <TableCell className="text-right font-medium text-slate-900 dark:text-slate-100">
+                              {(() => {
+                                const jenis = (item.jenisKas || item.jenis_kas || item.jenis || '').toString().toUpperCase();
+                                const amt = item.nominalRp || item.nominal_rp || item.nominalSetor || item.nominal_setor || item.nominal || item.amount || 0;
+                                return jenis === 'TERIMA' ? <CurrencyDisplay amount={Number(amt) || 0} /> : <span className="text-slate-400 dark:text-slate-500">-</span>;
+                              })()}
+                            </TableCell>
+                            <TableCell className="text-slate-700 dark:text-slate-300">{item.createdBy || item.created_by || item.created_by_name || '-'}</TableCell>
+                            <TableCell className="text-slate-700 dark:text-slate-300">{item.validBy || item.valid_by || item.validated_by || '-'}</TableCell>
+                            <TableCell className="text-center">
+                              <Badge variant={(item.metode || '').toString().toUpperCase() === 'CASH' ? 'outline' : 'secondary'} className="text-xs">
+                                {item.metode || '-'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-slate-700 dark:text-slate-300">
+                              {(() => {
+                                const metode = (item.metode || '').toString().toUpperCase();
+                                if (metode === 'CASH') {
+                                  const gramRaw = item.gramasi || item.gram || item.nominal_gr || item.nominalGr || item.nominalGrams || item.gramasiGr;
+                                  if (gramRaw !== undefined && gramRaw !== null && (typeof gramRaw === 'number' || String(gramRaw).trim() !== '')) {
+                                    const gramNum = typeof gramRaw === 'number' ? gramRaw : parseInt(String(gramRaw).replace(/[^0-9-]/g, ''), 10) || 0;
+                                    if (gramNum > 0) return <span className="font-mono">{formatNumber(gramNum)} gr</span>;
+                                  }
+                                  const fromGramasi = typeof gramRaw === 'object' ? gramRaw.noRekening || gramRaw.no_rekening : gramRaw;
+                                  const finalRek = fromGramasi || item.noRekening || item.no_rekening || item.rekening || null;
+                                  return finalRek ? <span className="font-mono">{finalRek}</span> : <span className="text-slate-400 dark:text-slate-500">-</span>;
+                                }
+                                const noRekFromRow = item.noRekening || item.no_rekening || item.rekening || '';
+                                const rekId = item.rekeningId || item.rekening_id || null;
+                                const master = rekeningList.find((r: any) => r.id === rekId || r._id === rekId || (r.noRekening || r.no_rekening) === noRekFromRow);
+                                const kodeBank = master?.kodeBank || master?.kode_bank || item.kodeBank || item.kode_bank || '';
+                                const account = master?.noRekening || master?.no_rekening || noRekFromRow || null;
+                                if (!account) return <span className="text-slate-400 dark:text-slate-500">-</span>;
+                                return <span className="font-mono text-sm">{kodeBank ? `${kodeBank} - ${account}` : account}</span>;
+                              })()}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        {/* Total Row */}
+                        <TableRow className="bg-slate-50 dark:bg-slate-700/50 border-t-2 border-slate-200 dark:border-slate-600">
+                          <TableCell className="font-semibold text-slate-900 dark:text-slate-100" colSpan={4}>Total</TableCell>
+                          <TableCell className="text-right font-semibold text-slate-900 dark:text-slate-100">
+                            <CurrencyDisplay amount={totalKirim} />
+                          </TableCell>
+                          <TableCell className="text-right font-semibold text-slate-900 dark:text-slate-100">
+                            <CurrencyDisplay amount={totalSetor} />
+                          </TableCell>
+                          <TableCell colSpan={4}></TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </div>
+
+                  {/* Pagination */}
+                  <div className="flex items-center justify-between pt-4">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-slate-600 dark:text-slate-400">Tampilkan</span>
+                      <Select value={pageSize.toString()} onValueChange={(value) => setPageSize(Number(value))}>
+                        <SelectTrigger className="w-20 h-9 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {pageSizes.map((size) => (
+                            <SelectItem key={size} value={size.toString()}>{size}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <span className="text-sm text-slate-600 dark:text-slate-400">per halaman</span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPage((p) => Math.max(1, p - 1))}
+                        disabled={page <= 1}
+                        className="h-9 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700"
+                      >
+                        Previous
+                      </Button>
+                      <div className="flex items-center gap-1">
+                        <span className="text-sm text-slate-600 dark:text-slate-400">Halaman</span>
+                        <span className="px-2 py-1 bg-blue-600 text-white rounded text-sm font-medium">{page}</span>
+                        <span className="text-sm text-slate-600 dark:text-slate-400">dari {pageCount}</span>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+                        disabled={page >= pageCount}
+                        className="h-9 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700"
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }
