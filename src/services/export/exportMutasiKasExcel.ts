@@ -89,11 +89,18 @@ export function exportMutasiKasExcel<T = any>(params: ExportReportParams<T>) {
   const totalSaldoAwal = rows.reduce((s, r) => s + (isRekap ? (r[2] || 0) : (r[2] || 0)), 0);
   const totalTerima = rows.reduce((s, r) => s + (isRekap ? (r[3] || 0) : (r[3] || 0)), 0);
   const totalKirim = rows.reduce((s, r) => s + (isRekap ? (r[4] || 0) : (r[4] || 0)), 0);
-  const totalSaldoAkhir = rows.reduce((s, r) => s + (isRekap ? (r[5] || 0) : (r[6] || 0)), 0);
+  // const totalSaldoAkhir = rows.reduce((s, r) => s + (isRekap ? (r[5] || 0) : (r[6] || 0)), 0);
 
-  const totalsRow = isRekap
-    ? ['TOTAL', '', totalSaldoAwal, totalTerima, totalKirim, totalSaldoAkhir]
-    : ['TOTAL', '', totalSaldoAwal, totalTerima, totalKirim, '', totalSaldoAkhir, '', ''];
+  // Hide total for 'Saldo Akhir' column, but keep total for 'Terima'
+  // Place totalTerima in the correct column for both Rekap and Detail, and leave Saldo Akhir blank
+  let totalsRow;
+  if (isRekap) {
+    // ['No', 'Tanggal', 'Saldo Awal', 'Terima', 'Kirim', 'Saldo Akhir']
+    totalsRow = ['TOTAL', '', '', totalTerima, totalKirim, ''];
+  } else {
+    // ['No', 'Tanggal', 'Saldo Awal', 'Terima', 'Kirim', 'Tipe', 'Saldo Akhir', 'Keterangan', 'No Rekening']
+    totalsRow = ['TOTAL', '', '', totalTerima, totalKirim, '', '', '', ''];
+  }
   aoa.push(totalsRow);
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
@@ -103,7 +110,8 @@ export function exportMutasiKasExcel<T = any>(params: ExportReportParams<T>) {
     if (header.length >= 4) {
       const totalRowIndex = aoa.length - 1; // 0-based
       ws['!merges'] = ws['!merges'] || [];
-      ws['!merges'].push({ s: { r: totalRowIndex, c: 0 }, e: { r: totalRowIndex, c: 3 } });
+      // Merge first two columns for TOTAL label (A and B)
+      ws['!merges'].push({ s: { r: totalRowIndex, c: 0 }, e: { r: totalRowIndex, c: 1 } });
       const totalCellAddr = XLSX.utils.encode_cell({ r: totalRowIndex, c: 0 });
       ws[totalCellAddr] = { v: 'TOTAL', t: 's' };
     }
@@ -182,21 +190,23 @@ export function exportMutasiKasExcel<T = any>(params: ExportReportParams<T>) {
           cell.s.font = { bold: true };
           cell.s.alignment = { horizontal: currencyCols.includes(c) ? 'right' : 'center', vertical: 'center' };
           cell.s.fill = { fgColor: { rgb: 'FFF5F5F5' } };
-          // Ensure currency TOTAL cells are numeric and formatted as Rupiah
+          // Only format and set value if not empty
           if (currencyCols.includes(c)) {
-            if (cell && (cell.v === undefined || cell.v === null)) {
-              cell.v = 0;
-              cell.t = 'n';
+            if (cell && (cell.v === undefined || cell.v === null || cell.v === '')) {
+              // leave as is (empty cell)
             } else if (typeof cell.v === 'string') {
               const num = Number(String(cell.v).replace(/[^0-9.-]/g, '')) || 0;
               cell.v = num;
               cell.t = 'n';
+              const rupiahFmt = '"Rp" #,##0';
+              cell.s.numFmt = rupiahFmt;
+              cell.z = rupiahFmt;
             } else if (typeof cell.v === 'number') {
               cell.t = 'n';
+              const rupiahFmt = '"Rp" #,##0';
+              cell.s.numFmt = rupiahFmt;
+              cell.z = rupiahFmt;
             }
-            const rupiahFmt = '"Rp" #,##0';
-            cell.s.numFmt = rupiahFmt;
-            cell.z = rupiahFmt;
           }
         } else {
           // data rows
