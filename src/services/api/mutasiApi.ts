@@ -12,6 +12,7 @@ export const mutasiApi = {
     kodeToko?: string;
     metode?: string;
     jenisTransaksi?: string;
+    statusValidasi?: string;
   }) {
     const response = await apiClient.get('/transaksi/mutasi', { params });
     return response.data;
@@ -20,6 +21,10 @@ export const mutasiApi = {
     const body: any = {};
     if (alasan !== undefined) body.alasan = alasan;
     const response = await apiClient.post(`/transaksi/mutasi/${id}/batal`, body);
+    return response.data;
+  },
+  async validateMutasi(id: string) {
+    const response = await apiClient.post(`/transaksi/mutasi/${id}/validasi`);
     return response.data;
   },
 };

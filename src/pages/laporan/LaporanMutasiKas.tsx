@@ -55,6 +55,7 @@ export default function LaporanMutasiKas() {
     endDate: formatDateForApi(today),
     kodeToko: '',
     metode: undefined,
+    statusValidasi: 'DONE',
   });
   
   const { toast } = useToast();
@@ -77,8 +78,8 @@ export default function LaporanMutasiKas() {
       // If REKAP and metode is not specified (SEMUA), fetch both CASH and TRANSFER and merge by date
       if (searchParams.type === 'REKAP' && !searchParams.metode) {
         return Promise.all([
-          mutasiApi.getMutasi({ ...searchParams, metode: 'CASH' }),
-          mutasiApi.getMutasi({ ...searchParams, metode: 'TRANSFER' }),
+          mutasiApi.getMutasi({ ...searchParams, metode: 'CASH', statusValidasi: 'DONE' }),
+          mutasiApi.getMutasi({ ...searchParams, metode: 'TRANSFER', statusValidasi: 'DONE' }),
         ]).then(([cashRes, transferRes]) => {
           // both responses are arrays of { tanggal, saldoAwal, totalTerima, totalKirim, saldoAkhir }
           const map: Record<string, any> = {};
@@ -104,6 +105,7 @@ export default function LaporanMutasiKas() {
         endDate: searchParams.endDate,
         kodeToko: searchParams.kodeToko,
         metode: searchParams.metode,
+        statusValidasi: 'DONE',
       });
     },
     enabled: !!searchParams,
@@ -143,6 +145,7 @@ export default function LaporanMutasiKas() {
       ...filters,
       startDate: startIso.toISOString(),
       endDate: endIso.toISOString(),
+      statusValidasi: 'DONE',
     } as LaporanMutasiFilter;
     setFilters(newFilters);
     setSearchParams(newFilters);
@@ -175,6 +178,7 @@ export default function LaporanMutasiKas() {
       endDate: endIso.toISOString(),
       kodeToko: filters.kodeToko,
       metode: filters.metode,
+      statusValidasi: 'DONE',
     } as LaporanMutasiFilter;
 
     try {
@@ -183,21 +187,21 @@ export default function LaporanMutasiKas() {
         await Promise.all([
           queryClient.fetchQuery({
             queryKey: ['laporan-mutasi', { ...newFilters, metode: 'CASH' }],
-            queryFn: () => mutasiApi.getMutasi({ ...newFilters, metode: 'CASH' }),
+            queryFn: () => mutasiApi.getMutasi({ ...newFilters, metode: 'CASH', statusValidasi: 'DONE' }),
           }),
           queryClient.fetchQuery({
             queryKey: ['laporan-mutasi', { ...newFilters, metode: 'TRANSFER' }],
-            queryFn: () => mutasiApi.getMutasi({ ...newFilters, metode: 'TRANSFER' }),
+            queryFn: () => mutasiApi.getMutasi({ ...newFilters, metode: 'TRANSFER', statusValidasi: 'DONE' }),
           }),
           queryClient.fetchQuery({
             queryKey: ['laporan-mutasi', newFilters],
-            queryFn: () => mutasiApi.getMutasi(newFilters),
+            queryFn: () => mutasiApi.getMutasi({ ...newFilters, statusValidasi: 'DONE' }),
           }),
         ]);
       } else {
         await queryClient.fetchQuery({
           queryKey: ['laporan-mutasi', newFilters],
-          queryFn: () => mutasiApi.getMutasi(newFilters),
+          queryFn: () => mutasiApi.getMutasi({ ...newFilters, statusValidasi: 'DONE' }),
         });
       }
       setFilters(newFilters);

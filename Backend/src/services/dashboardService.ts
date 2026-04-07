@@ -1,6 +1,5 @@
 import MutasiKas from '../models/MutasiKas';
-import SaldoCash from '../models/SaldoCash';
-import SaldoRekening from '../models/SaldoRekening';
+import TmKas from '../models/TmKas';
 
 export const getDashboardSummary = async () => {
   const today = new Date();
@@ -8,10 +7,13 @@ export const getDashboardSummary = async () => {
   const tomorrow = new Date(today);
   tomorrow.setDate(today.getDate() + 1);
 
-  // Saldo Hari Ini (Cash + Rekening)
-  const lastCash = await SaldoCash.findOne({}, {}, { sort: { tanggal: -1 } });
-  const lastRekening = await SaldoRekening.findOne({}, {}, { sort: { tanggal: -1 } });
-  const saldoHariIni = (lastCash?.nominal || 0) + (lastRekening?.nominal || 0);
+  // Saldo Hari Ini = total saldo berjalan dari master ledger (tm_kas):
+  // CASH (no_rekening '-') + semua rekening TRANSFER.
+  const saldoAggregate = await TmKas.aggregate([
+    { $match: { metode: { $in: ['CASH', 'TRANSFER'] } } },
+    { $group: { _id: null, total: { $sum: '$saldo_akhir' } } },
+  ]);
+  const saldoHariIni = Number(saldoAggregate[0]?.total || 0);
 
   // Total Kirim Kas Hari Ini (exclude cancelled)
   const totalKirimKas = await MutasiKas.aggregate([

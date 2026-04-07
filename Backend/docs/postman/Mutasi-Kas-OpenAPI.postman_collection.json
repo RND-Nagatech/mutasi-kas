@@ -1,0 +1,160 @@
+{
+  "info": {
+    "name": "Mutasi Kas OpenAPI - Transaksi Kas",
+    "description": "Collection OpenAPI transaksi kas via API Token (tanpa login admin): list validasi, validasi mutasi, cancel mutasi, dan terima kas.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "OpenAPI Docs",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            }
+          }
+        },
+        {
+          "name": "Get OpenAPI JSON",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/openapi.json",
+              "host": ["{{baseUrl}}"],
+              "path": ["openapi.json"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Transaksi Kas (API Token)",
+      "item": [
+        {
+          "name": "List Validasi Mutasi (OPEN KIRIM)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{apiToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/transaksi/openapi/mutasi/validasi?startDate={{startDateIso}}&endDate={{endDateIso}}&metode=ALL",
+              "host": ["{{baseUrl}}"],
+              "path": ["transaksi", "openapi", "mutasi", "validasi"],
+              "query": [
+                { "key": "startDate", "value": "{{startDateIso}}" },
+                { "key": "endDate", "value": "{{endDateIso}}" },
+                { "key": "metode", "value": "ALL" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Validasi Mutasi (OPEN -> DONE)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{apiToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/transaksi/openapi/mutasi/{{mutasiId}}/validasi",
+              "host": ["{{baseUrl}}"],
+              "path": ["transaksi", "openapi", "mutasi", "{{mutasiId}}", "validasi"]
+            }
+          }
+        },
+        {
+          "name": "Cancel Mutasi (OPEN -> CANCEL)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{apiToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"alasan\": \"Pembatalan dari OpenAPI\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/transaksi/openapi/mutasi/{{mutasiId}}/batal",
+              "host": ["{{baseUrl}}"],
+              "path": ["transaksi", "openapi", "mutasi", "{{mutasiId}}", "batal"]
+            }
+          }
+        },
+        {
+          "name": "Terima Kas (Create TERIMA)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{apiToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tanggal\": \"{{$isoTimestamp}}\",\n  \"jam\": \"12:30:00\",\n  \"metode\": \"TRANSFER\",\n  \"no_rekening\": \"{{rekeningSumber}}\",\n  \"nominal_rp\": {{nominalMutasiContoh}},\n  \"saldo_awal\": {{saldoAwalContoh}},\n  \"kode_bank\": \"{{kodeBankContoh}}\",\n  \"gramasi\": 0,\n  \"keterangan\": \"Terima kas dari OpenAPI\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/transaksi/openapi/mutasi/terima-kas",
+              "host": ["{{baseUrl}}"],
+              "path": ["transaksi", "openapi", "mutasi", "terima-kas"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.id) pm.environment.set('mutasiId', json.id);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Permintaan Transfer (API Token)",
+      "item": [
+        {
+          "name": "Create Permintaan Transfer (External)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{apiToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tanggal\": \"{{$isoTimestamp}}\",\n  \"nominal_rp\": {{nominalPermintaanTransfer}},\n  \"input_by\": \"{{externalInputBy}}\",\n  \"no_rekening_tujuan\": \"{{rekeningTujuanPihakKetiga}}\",\n  \"nama_bank_tujuan\": \"{{namaBankTujuan}}\",\n  \"atas_nama_penerima\": \"{{atasNamaPenerima}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/transaksi/permintaan-transfer/external",
+              "host": ["{{baseUrl}}"],
+              "path": ["transaksi", "permintaan-transfer", "external"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json.id) pm.environment.set('permintaanTransferId', json.id);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

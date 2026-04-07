@@ -57,6 +57,7 @@ interface KirimanSetoranFilter {
   jenisTransaksi?: string;
   metode?: MetodeTransaksi;
   rekeningId?: string;
+  statusValidasi?: string;
 }
 
 export default function LaporanKirimanSetoran() {
@@ -98,6 +99,7 @@ export default function LaporanKirimanSetoran() {
       kodeToko: filters.kodeToko,
       metode: filters.metode,
       jenisTransaksi: filters.jenisTransaksi,
+      statusValidasi: 'DONE',
     }),
     enabled: !!filters.startDate && !!filters.endDate,
   });
@@ -123,6 +125,7 @@ export default function LaporanKirimanSetoran() {
       jenisTransaksi: pendingFilters.jenisTransaksi,
       metode: pendingFilters.metode,
       rekeningId: pendingFilters.rekeningId,
+      statusValidasi: 'DONE',
     } as KirimanSetoranFilter;
 
     try {
@@ -137,6 +140,7 @@ export default function LaporanKirimanSetoran() {
               kodeToko: newFilters.kodeToko,
               metode: 'CASH',
               jenisTransaksi: newFilters.jenisTransaksi,
+              statusValidasi: 'DONE',
             }),
           }),
           queryClient.fetchQuery({
@@ -147,6 +151,7 @@ export default function LaporanKirimanSetoran() {
               kodeToko: newFilters.kodeToko,
               metode: 'TRANSFER',
               jenisTransaksi: newFilters.jenisTransaksi,
+              statusValidasi: 'DONE',
             }),
           }),
           queryClient.fetchQuery({
@@ -157,6 +162,7 @@ export default function LaporanKirimanSetoran() {
               kodeToko: newFilters.kodeToko,
               metode: newFilters.metode,
               jenisTransaksi: newFilters.jenisTransaksi,
+              statusValidasi: 'DONE',
             }),
           }),
         ]);
@@ -169,6 +175,7 @@ export default function LaporanKirimanSetoran() {
             kodeToko: newFilters.kodeToko,
             metode: newFilters.metode,
             jenisTransaksi: newFilters.jenisTransaksi,
+            statusValidasi: 'DONE',
           }),
         });
       }
@@ -344,7 +351,7 @@ export default function LaporanKirimanSetoran() {
         header: 'Penerima',
         cell: (item) => {
           const i: any = item;
-          return getField(i, 'validBy', 'valid_by', 'validated_by') || '-';
+          return getField(i, 'kodeToko', 'kode_toko', 'tokoKode') || '-';
         },
       },
       {
@@ -751,7 +758,9 @@ export default function LaporanKirimanSetoran() {
                               })()}
                             </TableCell>
                             <TableCell className="text-slate-700 dark:text-slate-300">{item.createdBy || item.created_by || item.created_by_name || '-'}</TableCell>
-                            <TableCell className="text-slate-700 dark:text-slate-300">{item.validBy || item.valid_by || item.validated_by || '-'}</TableCell>
+                            <TableCell className="text-slate-700 dark:text-slate-300">
+                              {item.kodeToko || item.kode_toko || item.tokoKode || '-'}
+                            </TableCell>
                             <TableCell className="text-center">
                               <Badge variant={(item.metode || '').toString().toUpperCase() === 'CASH' ? 'outline' : 'secondary'} className="text-xs">
                                 {item.metode || '-'}

@@ -48,9 +48,24 @@ export const inputSaldoCash = async (req: Request, res: Response) => {
 
 export const getSaldoCash = async (req: Request, res: Response) => {
   try {
-    // Ambil semua data saldo cash, urut terbaru di atas
-    const saldo = await SaldoCash.find().sort({ tanggal: -1 });
-    res.json({ success: true, data: saldo });
+    const latestHistory = await SaldoCash.findOne().sort({ tanggal: -1, _id: -1 });
+    const TmKas = (await import('../models/TmKas')).default;
+    const tmCash = await TmKas.findOne({ metode: 'CASH', no_rekening: '-' }).sort({ _id: -1 });
+
+    const currentNominal = tmCash ? Number(tmCash.saldo_akhir || 0) : Number(latestHistory?.nominal || 0);
+    const lastSyncAt = tmCash?._id?.getTimestamp?.() || null;
+
+    const rows = [
+      {
+        _id: latestHistory?._id || tmCash?._id || 'cash-current',
+        nominal: currentNominal,
+        input_by: latestHistory?.input_by || 'system-sync',
+        tanggal: latestHistory?.tanggal || new Date(),
+        last_sync_at: lastSyncAt,
+      },
+    ];
+
+    res.json({ success: true, data: rows, meta: { lastSyncAt } });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Gagal ambil saldo cash', error: err });
   }

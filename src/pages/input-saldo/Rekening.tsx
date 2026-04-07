@@ -39,6 +39,7 @@ export default function InputSaldoRekening() {
       queryFn: saldoRekeningApi.getAll,
     });
     const saldoList = Array.isArray(saldoData?.data) ? saldoData.data : [];
+    const lastSyncAt = saldoData?.meta?.lastSyncAt ? new Date(saldoData.meta.lastSyncAt) : null;
 
     // Pagination state and logic
     const [page, setPage] = useState(1);
@@ -147,6 +148,9 @@ export default function InputSaldoRekening() {
         <div>
           <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Master Saldo Rekening</h1>
           <p className="text-slate-600 dark:text-slate-400 mt-2">Kelola data saldo rekening untuk transaksi</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            Last Sync: {lastSyncAt ? lastSyncAt.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }) : '-'}
+          </p>
         </div>
         <Button 
           className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm hover:shadow-md transition-all duration-200" 
@@ -247,7 +251,7 @@ export default function InputSaldoRekening() {
         columns={columns}
         data={paginatedSaldo}
         isLoading={isLoadingSaldo}
-        keyExtractor={(item) => `${item.no_rekening || item.noRekening}`}
+        keyExtractor={(item) => `${item._id || item.id || item.no_rekening || item.noRekening}-${item.tanggal || item.created_at || ''}`}
         emptyMessage="Belum ada data saldo rekening"
         className="shadow-sm bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border-slate-200/50 dark:border-slate-700/50"
       />

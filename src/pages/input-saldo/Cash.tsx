@@ -31,6 +31,7 @@ export default function InputSaldoCash() {
     queryKey: ['saldo-cash-list'],
     queryFn: saldoCashApi.get,
   });
+  const lastSyncAt = data?.meta?.lastSyncAt ? new Date(data.meta.lastSyncAt) : null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -109,6 +110,9 @@ export default function InputSaldoCash() {
         <div>
           <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100">Master Saldo Cash</h1>
           <p className="text-slate-600 dark:text-slate-400 mt-2">Kelola data saldo cash untuk transaksi</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            Last Sync: {lastSyncAt ? lastSyncAt.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }) : '-'}
+          </p>
         </div>
         <Button 
           className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm hover:shadow-md transition-all duration-200" 

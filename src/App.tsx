@@ -13,9 +13,11 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import MasterBank from "./pages/master/MasterBank";
 import MasterRekening from "./pages/master/MasterRekening";
+import ApiTokenManagementPage from "./pages/master/ApiTokenManagement";
 import KirimKas from "./pages/transaksi/KirimKas";
 import BatalKirimKas from "./pages/transaksi/BatalKirimKas";
 import TerimaKas from "./pages/transaksi/TerimaKas";
+import PermintaanTransferPage from "./pages/transaksi/PermintaanTransfer";
 import LaporanMutasiKas from "./pages/laporan/LaporanMutasiKas";
 import LaporanKirimanSetoran from "./pages/laporan/LaporanKirimanSetoran";
 import NotFound from "./pages/NotFound";
@@ -47,10 +49,12 @@ const App = () => (
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/master/bank" element={<MasterBank />} />
             <Route path="/master/rekening" element={<MasterRekening />} />
+            <Route path="/master/api-tokens" element={<ApiTokenManagementPage />} />
             <Route path="/master/toko" element={<MasterToko />} />
             <Route path="/transaksi/kirim" element={<KirimKas />} />
             <Route path="/transaksi/batal-kirim" element={<BatalKirimKas />} />
             <Route path="/transaksi/terima" element={<TerimaKas />} />
+            <Route path="/permintaan-transfer" element={<PermintaanTransferPage />} />
             <Route path="/laporan/mutasi-kas" element={<LaporanMutasiKas />} />
             <Route path="/laporan/kiriman-setoran" element={<LaporanKirimanSetoran />} />
             <Route path="/input-saldo/cash" element={<InputSaldoCash />} />

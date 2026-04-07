@@ -91,7 +91,7 @@ export interface Toko {
 
 // Transaction Types
 export type MetodeTransaksi = 'CASH' | 'TRANSFER';
-export type StatusTransaksi = 'OPEN' | 'DONE' | 'CANCEL' | 'REJECT';
+export type StatusTransaksi = 'OPEN' | 'DONE' | 'CANCEL' | 'REJECT' | 'APPROVED' | 'REJECTED';
 
 export interface MutasiKas {
   id: string;
@@ -145,6 +145,7 @@ export interface LaporanMutasiFilter {
   endDate: string;
   kodeToko?: string;
   metode?: MetodeTransaksi;
+  statusValidasi?: string;
 }
 
 export interface LaporanKirimanFilter {
@@ -154,4 +155,64 @@ export interface LaporanKirimanFilter {
   jenisTransaksi?: string;
   metode?: MetodeTransaksi;
   rekeningId?: string;
+  statusValidasi?: string;
+}
+
+export type StatusPermintaanTransfer = 'OPEN' | 'APPROVED' | 'REJECTED';
+
+export interface PermintaanTransfer {
+  id: string;
+  tanggal: string;
+  nominalRp: number;
+  inputBy: string;
+  noRekeningTujuan: string;
+  namaBankTujuan: string;
+  atasNamaPenerima: string;
+  kodeTokoPeminta: string;
+  status: StatusPermintaanTransfer;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  noRekeningSumber?: string;
+  mutasiKasId?: string;
+  noTrxMutasi?: string;
+  reviewedBy?: string;
+  reviewedAt?: string | null;
+}
+
+export interface CreatePermintaanTransferRequest {
+  tanggal: string;
+  nominalRp: number;
+  inputBy: string;
+  noRekeningTujuan: string;
+  namaBankTujuan: string;
+  atasNamaPenerima: string;
+  kodeTokoPeminta: string;
+}
+
+export interface UpdatePermintaanTransferRequest {
+  tanggal: string;
+  nominalRp: number;
+  inputBy: string;
+  noRekeningTujuan: string;
+  namaBankTujuan: string;
+  atasNamaPenerima: string;
+  kodeTokoPeminta: string;
+}
+
+export interface ApiToken {
+  id: string;
+  nama: string;
+  kode_toko: string;
+  token_version: number;
+  is_active: boolean;
+  last_used_at?: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateApiTokenRequest {
+  nama: string;
+  kode_toko: string;
 }

@@ -37,6 +37,7 @@ const navigation: NavItem[] = [
     children: [
       { title: 'Master Bank', href: '/master/bank' },
       { title: 'Master Rekening', href: '/master/rekening' },
+      { title: 'API Tokens', href: '/master/api-tokens' },
       { title: 'Master Toko', href: '/master/toko' },
     ],
   },
@@ -56,6 +57,11 @@ const navigation: NavItem[] = [
       { title: 'Terima Kas', href: '/transaksi/terima' },
       { title: 'Batal Kirim Kas', href: '/transaksi/batal-kirim' },
     ],
+  },
+  {
+    title: 'Permintaan Transfer',
+    href: '/permintaan-transfer',
+    icon: Receipt,
   },
   {
     title: 'Laporan',
@@ -303,64 +309,97 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               <ul className="space-y-0.5">
                 {navigation.slice(3).map((item) => (
                   <li key={item.title}>
-                    <button
-                      onClick={() => toggleExpanded(item.title)}
-                      className={cn(
-                        'group relative flex w-full items-center justify-between px-3 py-2 text-sm font-medium rounded-lg transition-all duration-300 ease-out hover:scale-[1.02] hover:-translate-y-0.5 hover:shadow-sm hover:shadow-slate-900/5 dark:hover:shadow-slate-900/10 hover:bg-slate-100/80 dark:hover:bg-slate-700/80',
-                        isParentActive(item.children)
-                          ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25 dark:shadow-blue-500/40'
-                          : 'text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white'
-                      )}
-                    >
-                      <div className="flex items-center gap-3">
+                    {item.href ? (
+                      <NavLink
+                        to={item.href}
+                        onClick={onClose}
+                        className={cn(
+                          'group relative flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg transition-all duration-300 ease-out hover:scale-[1.02] hover:-translate-y-0.5 hover:shadow-sm hover:shadow-slate-900/5 dark:hover:shadow-slate-900/10 hover:bg-slate-100/80 dark:hover:bg-slate-700/80',
+                          isActive(item.href)
+                            ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25 dark:shadow-blue-500/40'
+                            : 'text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white'
+                        )}
+                      >
                         <div className={cn(
                           'flex h-7 w-7 items-center justify-center rounded-lg transition-all duration-300 group-hover:scale-110 group-hover:rotate-3',
-                          isParentActive(item.children)
+                          isActive(item.href)
                             ? 'bg-white/20'
                             : 'bg-slate-100 dark:bg-slate-700 group-hover:bg-blue-500/20 group-hover:shadow-md group-hover:shadow-blue-500/15'
                         )}>
                           <item.icon className={cn(
                             'h-3.5 w-3.5 transition-all duration-300',
-                            isParentActive(item.children)
+                            isActive(item.href)
                               ? 'text-white'
                               : 'text-slate-600 dark:text-slate-300 group-hover:text-blue-600 dark:group-hover:text-blue-400 group-hover:scale-110'
                           )} />
                         </div>
                         <span className="font-medium">{item.title}</span>
-                      </div>
-                      <ChevronDown
-                        className={cn(
-                          'h-4 w-4 transition-transform duration-200',
-                          expandedItems.includes(item.title) ? 'rotate-180 text-white' : 'text-slate-400 dark:text-slate-500'
+                        {isActive(item.href) && (
+                          <div className="ml-auto h-2 w-2 rounded-full bg-white animate-pulse" />
                         )}
-                      />
-                    </button>
-
-                    {expandedItems.includes(item.title) && item.children && (
-                      <ul className="mt-1 space-y-0.5 ml-8">
-                        {item.children.map((child) => (
-                          <li key={child.href}>
-                            <NavLink
-                              to={child.href}
-                              onClick={onClose}
-                              className={cn(
-                                'group flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-all duration-300 ease-out hover:scale-[1.03] hover:translate-x-1 hover:shadow-sm hover:bg-slate-100/80 dark:hover:bg-slate-700/80',
-                                isActive(child.href)
-                                  ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-semibold border-l-2 border-blue-500 shadow-sm'
-                                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-                              )}
-                            >
-                              <div className={cn(
-                                'h-1 w-1 rounded-full transition-all duration-300 group-hover:scale-125',
-                                isActive(child.href)
-                                  ? 'bg-blue-500'
-                                  : 'bg-slate-400 dark:bg-slate-500 group-hover:bg-blue-400/60 group-hover:shadow-sm group-hover:shadow-blue-500/30'
+                      </NavLink>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => toggleExpanded(item.title)}
+                          className={cn(
+                            'group relative flex w-full items-center justify-between px-3 py-2 text-sm font-medium rounded-lg transition-all duration-300 ease-out hover:scale-[1.02] hover:-translate-y-0.5 hover:shadow-sm hover:shadow-slate-900/5 dark:hover:shadow-slate-900/10 hover:bg-slate-100/80 dark:hover:bg-slate-700/80',
+                            isParentActive(item.children)
+                              ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25 dark:shadow-blue-500/40'
+                              : 'text-slate-700 dark:text-slate-200 hover:text-slate-900 dark:hover:text-white'
+                          )}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={cn(
+                              'flex h-7 w-7 items-center justify-center rounded-lg transition-all duration-300 group-hover:scale-110 group-hover:rotate-3',
+                              isParentActive(item.children)
+                                ? 'bg-white/20'
+                                : 'bg-slate-100 dark:bg-slate-700 group-hover:bg-blue-500/20 group-hover:shadow-md group-hover:shadow-blue-500/15'
+                            )}>
+                              <item.icon className={cn(
+                                'h-3.5 w-3.5 transition-all duration-300',
+                                isParentActive(item.children)
+                                  ? 'text-white'
+                                  : 'text-slate-600 dark:text-slate-300 group-hover:text-blue-600 dark:group-hover:text-blue-400 group-hover:scale-110'
                               )} />
-                              <span>{child.title}</span>
-                            </NavLink>
-                          </li>
-                        ))}
-                      </ul>
+                            </div>
+                            <span className="font-medium">{item.title}</span>
+                          </div>
+                          <ChevronDown
+                            className={cn(
+                              'h-4 w-4 transition-transform duration-200',
+                              expandedItems.includes(item.title) ? 'rotate-180 text-white' : 'text-slate-400 dark:text-slate-500'
+                            )}
+                          />
+                        </button>
+
+                        {expandedItems.includes(item.title) && item.children && (
+                          <ul className="mt-1 space-y-0.5 ml-8">
+                            {item.children.map((child) => (
+                              <li key={child.href}>
+                                <NavLink
+                                  to={child.href}
+                                  onClick={onClose}
+                                  className={cn(
+                                    'group flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-all duration-300 ease-out hover:scale-[1.03] hover:translate-x-1 hover:shadow-sm hover:bg-slate-100/80 dark:hover:bg-slate-700/80',
+                                    isActive(child.href)
+                                      ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-semibold border-l-2 border-blue-500 shadow-sm'
+                                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                                  )}
+                                >
+                                  <div className={cn(
+                                    'h-1 w-1 rounded-full transition-all duration-300 group-hover:scale-125',
+                                    isActive(child.href)
+                                      ? 'bg-blue-500'
+                                      : 'bg-slate-400 dark:bg-slate-500 group-hover:bg-blue-400/60 group-hover:shadow-sm group-hover:shadow-blue-500/30'
+                                  )} />
+                                  <span>{child.title}</span>
+                                </NavLink>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </>
                     )}
                   </li>
                 ))}

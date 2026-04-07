@@ -8,31 +8,61 @@ function generateNoTrx(): string {
   return 'TRX' + Date.now() + Math.floor(Math.random() * 1000);
 }
 
-export const createMutasiKas = async (data: Omit<IMutasiKas, 'no_trx' | 'saldo_akhir' | 'status_validasi' | 'valid_by'> & { created_by: string }) => {
-  if (data.nominal_rp > data.saldo_awal) throw { status: 400, message: 'nominal_rp cannot be greater than saldo_awal' };
-  const saldo_akhir = data.saldo_awal - data.nominal_rp;
+async function syncTransferMasterSaldo(noRekening: string, nominal: number, inputBy: string) {
+  if (!noRekening || noRekening === '-') return;
+  try {
+    const SaldoRekening = (await import('../models/SaldoRekening')).default;
+    await SaldoRekening.create({
+      no_rekening: noRekening,
+      nominal,
+      input_by: inputBy || 'system',
+      tanggal: new Date(),
+    });
+  } catch (err) {
+    console.error('Failed to sync tt_saldo_rekening:', err);
+  }
+}
+
+export const createMutasiKas = async (
+  data: Omit<IMutasiKas, 'no_trx' | 'saldo_akhir' | 'status_validasi' | 'valid_by'> & { created_by: string },
+  options?: { syncLedger?: boolean }
+) => {
+  const jenisKas = ((data as any).jenis_kas || 'KIRIM').toString().toUpperCase();
+  if (jenisKas === 'KIRIM' && data.nominal_rp > data.saldo_awal) {
+    throw { status: 400, message: 'nominal_rp cannot be greater than saldo_awal for KIRIM' };
+  }
+  const saldo_akhir = jenisKas === 'TERIMA'
+    ? data.saldo_awal + data.nominal_rp
+    : data.saldo_awal - data.nominal_rp;
   const no_trx = generateNoTrx();
   const mutasi = new MutasiKas({
     ...data,
+    jenis_kas: jenisKas,
     saldo_akhir,
     no_trx,
     status_validasi: 'OPEN',
     valid_by: '-',
   });
   await mutasi.save();
-  // Sync the tm_kas record's saldo_akhir to match the created mutasi's saldo_akhir.
-  // We still avoid touching `SaldoCash` historic log entries here; tm_kas is
-  // kept as the current ledger for each metode/no_rekening.
-  try {
-    const noRek = mutasi.no_rekening || (mutasi.metode === 'CASH' ? '-' : '');
-    await TmKas.findOneAndUpdate(
-      { metode: mutasi.metode, no_rekening: noRek },
-      { $set: { saldo_akhir: mutasi.saldo_akhir, metode: mutasi.metode, no_rekening: noRek } },
-      { upsert: true, new: true }
-    );
-  } catch (err) {
-    // Log but do not fail the mutasi creation if tm_kas update fails
-    console.error('Failed to sync tm_kas saldo_akhir:', err);
+  const shouldSyncLedger = options?.syncLedger !== false;
+  if (shouldSyncLedger) {
+    // Sync the tm_kas record's saldo_akhir to match the created mutasi's saldo_akhir.
+    // We still avoid touching `SaldoCash` historic log entries here; tm_kas is
+    // kept as the current ledger for each metode/no_rekening.
+    try {
+      const noRek = mutasi.no_rekening || (mutasi.metode === 'CASH' ? '-' : '');
+      await TmKas.findOneAndUpdate(
+        { metode: mutasi.metode, no_rekening: noRek },
+        { $set: { saldo_akhir: mutasi.saldo_akhir, metode: mutasi.metode, no_rekening: noRek } },
+        { upsert: true, new: true }
+      );
+      if ((mutasi.metode || '').toString().toUpperCase() === 'TRANSFER') {
+        await syncTransferMasterSaldo(noRek, Number(mutasi.saldo_akhir || 0), String(mutasi.created_by || 'system'));
+      }
+    } catch (err) {
+      // Log but do not fail the mutasi creation if tm_kas update fails
+      console.error('Failed to sync tm_kas saldo_akhir:', err);
+    }
   }
 
   return mutasi;
@@ -116,22 +146,24 @@ export const cancelMutasiKas = async (id: string, created_by: string, alasan?: s
 
     if (tm) {
       // If the original mutasi was a KIRIM, it decreased the balance -> restore by adding nominal
-      // If it was a TERIMA, it increased the balance -> restore by subtracting nominal
+      // TERIMA in current flow is applied on validation, not on creation; cancel on OPEN should not reverse TERIMA.
       if ((mutasi.jenis_kas || '').toString().toUpperCase() === 'KIRIM') {
         tm.saldo_akhir = Number(tm.saldo_akhir || 0) + nominal;
-      } else if ((mutasi.jenis_kas || '').toString().toUpperCase() === 'TERIMA') {
-        tm.saldo_akhir = Number(tm.saldo_akhir || 0) - nominal;
       }
       await tm.save();
+      if ((mutasi.metode || '').toString().toUpperCase() === 'TRANSFER') {
+        await syncTransferMasterSaldo(noRek, Number(tm.saldo_akhir || 0), created_by || 'system');
+      }
     } else {
       // If no tm_kas exists for this metode/no_rekening, create one representing the restored balance
       let saldo = mutasi.saldo_akhir || 0;
       if ((mutasi.jenis_kas || '').toString().toUpperCase() === 'KIRIM') {
         saldo = Number(saldo) + nominal;
-      } else if ((mutasi.jenis_kas || '').toString().toUpperCase() === 'TERIMA') {
-        saldo = Number(saldo) - nominal;
       }
       await TmKas.create({ metode: mutasi.metode, no_rekening: noRek, saldo_akhir: saldo });
+      if ((mutasi.metode || '').toString().toUpperCase() === 'TRANSFER') {
+        await syncTransferMasterSaldo(noRek, Number(saldo || 0), created_by || 'system');
+      }
     }
 
     // For CASH methode, also create a SaldoCash record to reflect returned cash
@@ -147,5 +179,39 @@ export const cancelMutasiKas = async (id: string, created_by: string, alasan?: s
     console.error('Failed to reverse tm_kas on cancelMutasiKas:', err);
   }
 
+  return mutasi;
+};
+
+export const validateMutasiKas = async (id: string, valid_by: string) => {
+  const mutasi = await MutasiKas.findById(id);
+  if (!mutasi) throw { status: 404, message: 'Mutasi not found' };
+  if (mutasi.status_validasi !== 'OPEN') {
+    throw { status: 400, message: 'Only OPEN mutasi can be validated' };
+  }
+
+  // For TERIMA flow, saldo should be added at validation time.
+  if ((mutasi.jenis_kas || '').toString().toUpperCase() === 'TERIMA') {
+    const noRek = mutasi.no_rekening || (mutasi.metode === 'CASH' ? '-' : '');
+    const tm = await TmKas.findOne({ metode: mutasi.metode, no_rekening: noRek });
+    const currentSaldo = tm ? Number(tm.saldo_akhir || 0) : 0;
+    const nominal = Number(mutasi.nominal_rp || 0);
+    const nextSaldo = currentSaldo + nominal;
+
+    mutasi.saldo_awal = currentSaldo;
+    mutasi.saldo_akhir = nextSaldo;
+
+    await TmKas.findOneAndUpdate(
+      { metode: mutasi.metode, no_rekening: noRek },
+      { $set: { saldo_akhir: nextSaldo, metode: mutasi.metode, no_rekening: noRek } },
+      { upsert: true, new: true }
+    );
+    if ((mutasi.metode || '').toString().toUpperCase() === 'TRANSFER') {
+      await syncTransferMasterSaldo(noRek, Number(nextSaldo || 0), valid_by || 'system');
+    }
+  }
+
+  mutasi.status_validasi = 'DONE';
+  mutasi.valid_by = valid_by;
+  await mutasi.save();
   return mutasi;
 };

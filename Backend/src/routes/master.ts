@@ -24,9 +24,59 @@ router.get('/saldo-cash', authMiddleware, getSaldoCash);
 // Saldo Rekening Routes (protected)
 router.get('/saldo-rekening', authMiddleware, async (req: Request, res: Response) => {
   try {
-    // Ambil semua saldo rekening, urut terbaru di atas
-    const saldo = await require('../models/SaldoRekening').default.find().sort({ tanggal: -1 });
-    res.json({ success: true, data: saldo });
+    const SaldoRekening = require('../models/SaldoRekening').default;
+    const TmKas = require('../models/TmKas').default;
+    const RekeningModel = require('../models/Rekening').default;
+
+    // Latest history per rekening (for metadata: input_by, tanggal)
+    const latestSaldoHistory = await SaldoRekening.aggregate([
+      { $sort: { tanggal: -1, _id: -1 } },
+      {
+        $group: {
+          _id: '$no_rekening',
+          doc: { $first: '$$ROOT' },
+        },
+      },
+    ]);
+    const historyMap = new Map<string, any>(
+      latestSaldoHistory.map((x: any) => [String(x._id), x.doc])
+    );
+
+    // Current ledger for TRANSFER
+    const tmRows = await TmKas.find({ metode: 'TRANSFER' }).sort({ _id: -1 });
+    const tmMap = new Map<string, any>();
+    for (const row of tmRows) {
+      const noRek = String(row.no_rekening || '');
+      if (!noRek) continue;
+      if (!tmMap.has(noRek)) tmMap.set(noRek, row);
+    }
+
+    // Include rekening master so empty saldo still visible
+    const rekeningRows = await RekeningModel.find().sort({ no_rekening: 1 });
+    const allNoRekening = new Set<string>();
+    rekeningRows.forEach((r: any) => allNoRekening.add(String(r.no_rekening || '')));
+    Array.from(tmMap.keys()).forEach((k) => allNoRekening.add(k));
+    Array.from(historyMap.keys()).forEach((k) => allNoRekening.add(k));
+
+    const data = Array.from(allNoRekening)
+      .filter((noRek) => !!noRek)
+      .map((noRek) => {
+        const tm = tmMap.get(noRek);
+        const hist = historyMap.get(noRek);
+        return {
+          _id: hist?._id || tm?._id || noRek,
+          no_rekening: noRek,
+          nominal: tm ? Number(tm.saldo_akhir || 0) : Number(hist?.nominal || 0),
+          input_by: hist?.input_by || 'system-sync',
+          tanggal: hist?.tanggal || new Date(),
+          last_sync_at: tm?._id?.getTimestamp?.() || null,
+        };
+      })
+      .sort((a, b) => String(a.no_rekening).localeCompare(String(b.no_rekening)));
+
+    const latestTmTransfer = tmRows.length > 0 ? tmRows[0] : null;
+    const lastSyncAt = latestTmTransfer?._id?.getTimestamp?.() || null;
+    res.json({ success: true, data, meta: { lastSyncAt } });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Gagal ambil saldo rekening', error: err });
   }

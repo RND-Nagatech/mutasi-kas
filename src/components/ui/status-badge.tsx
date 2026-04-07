@@ -11,6 +11,8 @@ const statusBadgeVariants = cva(
         DONE: 'bg-success/10 text-success border border-success/20',
         CANCEL: 'bg-destructive/10 text-destructive border border-destructive/20',
         REJECT: 'bg-warning/10 text-warning border border-warning/20',
+        APPROVED: 'bg-success/10 text-success border border-success/20',
+        REJECTED: 'bg-warning/10 text-warning border border-warning/20',
       },
     },
     defaultVariants: {
@@ -29,6 +31,8 @@ const statusLabels: Record<StatusTransaksi, string> = {
   DONE: 'Selesai',
   CANCEL: 'Dibatalkan',
   REJECT: 'Ditolak',
+  APPROVED: 'Disetujui',
+  REJECTED: 'Ditolak',
 };
 
 export function StatusBadge({ status, className }: StatusBadgeProps) {

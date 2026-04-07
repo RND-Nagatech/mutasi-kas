@@ -14,7 +14,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { CurrencyDisplay } from '@/components/ui/currency-display';
 import { masterTokoApi } from '@/services/api/masterTokoApi';
 import { mutasiApi } from '@/services/api/mutasiApi';
-import { mutasiKasApi } from '@/services/api/mutasiKasApi';
 import {
   Select,
   SelectContent,
@@ -50,14 +49,11 @@ export default function TerimaKas() {
       if (!searchParams) return [];
       const res = await mutasiApi.getMutasi({ startDate: searchParams.startDate, endDate: searchParams.endDate, kodeToko: searchParams.kodeToko });
       const list = Array.isArray(res) ? res : (res?.data || []);
-      // only show KIRIM transactions that are still open/pending
+      // only show TERIMA transactions that are still open/pending
       return list.filter((m: any) => {
         const jenis = (m.jenisKas || m.jenis_kas || m.jenis || '').toString().toUpperCase();
         const status = (m.status || m.status_validasi || m.statusValidasi || '').toString().toUpperCase();
-        // Exclude transactions created by the current user (these are KirimKas created from this UI)
-        const createdBy = (m.createdBy || m.created_by || '').toString();
-        const isFromOther = user ? createdBy !== user.username : true;
-        return jenis === 'KIRIM' && (status === 'OPEN' || status === '' || status === 'PENDING') && isFromOther;
+        return jenis === 'TERIMA' && (status === 'OPEN' || status === '' || status === 'PENDING');
       });
     },
   });
@@ -86,20 +82,20 @@ export default function TerimaKas() {
 
   const [detailMutasi, setDetailMutasi] = useState<MutasiKas | null>(null);
 
-  const createMutasiMutation = useMutation({
-    mutationFn: (payload: any) => mutasiApi.createMutasi(payload),
+  const validateMutation = useMutation({
+    mutationFn: (id: string) => mutasiApi.validateMutasi(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['terima-mutasi'] });
       queryClient.invalidateQueries({ queryKey: ['laporan-mutasi'] });
       queryClient.invalidateQueries({ queryKey: ['laporan-kiriman-setoran'] });
       queryClient.invalidateQueries({ queryKey: ['recent-mutasi'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
-      toast({ title: 'Berhasil', description: 'Transaksi diterima dan disimpan' });
+      toast({ title: 'Berhasil', description: 'Transaksi berhasil divalidasi' });
       setSelectedIds(new Set());
       refetch();
     },
     onError: (err: any) => {
-      toast({ title: 'Gagal', description: err?.message || 'Gagal menyimpan transaksi', variant: 'destructive' });
+      toast({ title: 'Gagal', description: err?.message || 'Gagal memvalidasi transaksi', variant: 'destructive' });
     }
   });
 
@@ -132,42 +128,9 @@ export default function TerimaKas() {
       toast({ title: 'Validasi', description: 'Pilih transaksi yang akan diterima', variant: 'destructive' });
       return;
     }
-    // create TERIMA mutasi for each selected
     const items = mutasiList.filter((m:any) => selectedIds.has(m.id));
     for (const it of items) {
-      const kodeToko = it.kodeToko || it.kode_toko;
-      const metode = it.metode || 'CASH';
-      const noRek = (it as any).noRekening || (it as any).no_rekening || '-';
-      const nominal = Number((it as any).nominal_rp ?? (it as any).nominalRp ?? it.nominalKirim ?? (it as any).nominal ?? 0) || 0;
-
-      // fetch last saldo akhir for this toko/metode/noRek to compute saldo_awal and saldo_akhir
-      let saldoAwal = 0;
-      try {
-        const last = await mutasiKasApi.getLastSaldoAkhir({ kodeToko, metode, noRekening: noRek });
-        if (last && typeof last.saldoAkhir !== 'undefined') saldoAwal = Number(last.saldoAkhir) || 0;
-        else if (last && typeof last.saldoAkhir === 'undefined' && typeof last.saldoAkhir === 'number') saldoAwal = Number(last.saldoAkhir) || 0;
-      } catch (err) {
-        // fallback to zero if API fails
-        saldoAwal = 0;
-      }
-
-      const payload: any = {
-        kode_toko: kodeToko,
-        metode,
-        no_rekening: noRek,
-        nominal_rp: nominal,
-        gramasi: (it as any).gramasi ?? (it as any).gram ?? 0,
-        keterangan: `Terima dari ${it.noTransaksi || it.no_transaksi || '-'}`,
-        saldo_awal: saldoAwal,
-        saldo_akhir: saldoAwal + nominal,
-        kode_bank: it.kode_bank || '-',
-        tanggal: new Date().toISOString(),
-        jam: new Date().toLocaleTimeString('id-ID', { hour12: false }),
-        jenisKas: 'TERIMA',
-      };
-
-      // await sequentially to simplify error handling
-      await createMutasiMutation.mutateAsync(payload);
+      await validateMutation.mutateAsync((it as any).id);
     }
   };
 
@@ -188,13 +151,21 @@ export default function TerimaKas() {
     return [
       {
         key: 'select', header: (
-          <div className="pl-2">
-            <Checkbox checked={allSelected} onCheckedChange={() => selectAllOnPage(mutasiList)} />
+          <div className="pl-2" onClick={(e) => e.stopPropagation()}>
+            <Checkbox
+              checked={allSelected}
+              onClick={(e) => e.stopPropagation()}
+              onCheckedChange={() => selectAllOnPage(mutasiList)}
+            />
           </div>
         ),
         cell: (item) => (
-          <div className="pl-2">
-            <Checkbox checked={selectedIds.has(item.id)} onCheckedChange={() => toggleSelect(item.id)} />
+          <div className="pl-2" onClick={(e) => e.stopPropagation()}>
+            <Checkbox
+              checked={selectedIds.has(item.id)}
+              onClick={(e) => e.stopPropagation()}
+              onCheckedChange={() => toggleSelect(item.id)}
+            />
           </div>
         ),
         className: 'w-12',
@@ -203,7 +174,7 @@ export default function TerimaKas() {
       { key: 'tanggal', header: 'Tanggal', cell: (item) => formatDateTime((item as any).createdAt || (item as any).created_at) },
       { key: 'toko', header: 'Toko', cell: (item) => (item as any).kodeToko || (item as any).kode_toko || '-' },
       { key: 'nominal', header: 'Nominal', cell: (item) => <CurrencyDisplay amount={(item as any).nominal_rp || (item as any).nominalRp || (item as any).nominalKirim || (item as any).nominal || 0} />, className: 'text-right' },
-      { key: 'inputBy', header: 'Input Oleh', cell: (item) => (item as any).createdBy || (item as any).created_by || '-' },
+      { key: 'inputBy', header: 'Input Oleh', cell: (item) => (item as any).kodeToko || (item as any).kode_toko || '-' },
     ];
   }, [selectedIds, mutasiList]);
 
@@ -350,7 +321,7 @@ export default function TerimaKas() {
                 <div className="space-y-2">
                   <div className="text-sm font-medium text-slate-600 dark:text-slate-400 uppercase tracking-wide">Nominal</div>
                   <div className="text-lg font-semibold text-slate-900 dark:text-slate-100 bg-slate-50 dark:bg-slate-700 px-3 py-2 rounded-md border">
-                    <CurrencyDisplay amount={(detailMutasi as any).nominal_rp || detailMutasi.nominalKirim || (detailMutasi as any).nominal || 0} />
+                    <CurrencyDisplay amount={(detailMutasi as any).nominal_rp || (detailMutasi as any).nominalRp || (detailMutasi as any).nominalTerima || detailMutasi.nominalKirim || (detailMutasi as any).nominal || 0} />
                   </div>
                 </div>
                 <div className="space-y-2">
